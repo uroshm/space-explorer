@@ -1,7 +1,7 @@
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
 
-export const CRUISE_SPEED = 180;
-export const BOOST_SPEED = 480;
+export const CRUISE_SPEED = 540;
+export const BOOST_SPEED = 1200;
 const rotation = new Quaternion();
 const forward = new Vector3();
 const normal = new Vector3();
@@ -30,7 +30,7 @@ export class Flight {
     this.throttle = MathUtils.clamp(this.throttle + (input.thrust || 0) * dt * 0.65, 0, 1);
     if (this.energy >= 30) this.boostLocked = false;
     this.boosting = Boolean(input.boost && !this.boostLocked && this.energy > 0);
-    this.energy = MathUtils.clamp(this.energy + (this.boosting ? -24 : 14) * dt, 0, 100);
+    this.energy = MathUtils.clamp(this.energy + (this.boosting ? -8 : 14) * dt, 0, 100);
     if (this.energy === 0) this.boostLocked = true;
     const targetSpeed = this.boosting ? BOOST_SPEED : this.throttle * CRUISE_SPEED;
     this.speed = MathUtils.damp(this.speed, targetSpeed, 1.5, dt);

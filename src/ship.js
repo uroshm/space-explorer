@@ -79,6 +79,10 @@ export function createShip() {
   });
   const navLight = new THREE.MeshBasicMaterial({ color: 0xb2ffe8 });
   const engineGlow = new THREE.MeshBasicMaterial({ color: 0x86ffe2 });
+  const idleFlameColor = new THREE.Color(0x7affdb);
+  const thrustFlameColor = new THREE.Color(0xff642d);
+  const boostFlameColor = new THREE.Color(0xff2c1a);
+  const currentFlameColor = new THREE.Color();
 
   function addMesh(geometry, material, position, scale) {
     const part = new THREE.Mesh(geometry, material);
@@ -237,7 +241,7 @@ export function createShip() {
     const plume = addMesh(
       new THREE.ConeGeometry(0.42, 3.2, 16, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0x7affdb,
+        color: idleFlameColor,
         transparent: true,
         opacity: 0.48,
         blending: THREE.AdditiveBlending,
@@ -246,9 +250,16 @@ export function createShip() {
       }),
       [side * 1.55, -0.1, 6.35],
     );
-    plume.rotation.x = -Math.PI / 2;
+    plume.rotation.x = Math.PI / 2;
     exhaust.push(plume);
   }
 
-  return { ship, exhaust, updateAstronaut };
+  function updateEngineFlames({ throttle = 0, boosting = false, active = false } = {}) {
+    const thrustMix = active ? 0.45 + THREE.MathUtils.clamp(throttle, 0, 1) * 0.55 : 0;
+    currentFlameColor.copy(idleFlameColor).lerp(thrustFlameColor, thrustMix);
+    if (boosting) currentFlameColor.lerp(boostFlameColor, 0.72);
+    exhaust.forEach((plume) => plume.material.color.copy(currentFlameColor));
+  }
+
+  return { ship, exhaust, updateAstronaut, updateEngineFlames };
 }

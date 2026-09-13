@@ -9,16 +9,19 @@ function simulate(flight, seconds, input = {}, fps = 60) {
 
 test('boost consumes energy, locks when depleted, and recharges', () => {
   const flight = new Flight();
-  simulate(flight, 3, { boost: true });
+  simulate(flight, 10, { boost: true });
   assert.ok(flight.speed > CRUISE_SPEED);
   assert.ok(flight.speed <= BOOST_SPEED);
-  assert.ok(flight.energy < 30);
-  simulate(flight, 1.3, { boost: true });
+  assert.ok(Math.abs(flight.energy - 20) < 0.01);
+  simulate(flight, 2.6, { boost: true });
   assert.equal(flight.boostLocked, true);
   assert.equal(flight.boosting, false);
-  simulate(flight, 8);
-  assert.equal(flight.energy, 100);
+  simulate(flight, 2);
+  assert.ok(flight.energy < 30);
+  simulate(flight, 0.2);
   assert.equal(flight.boostLocked, false);
+  simulate(flight, 5);
+  assert.equal(flight.energy, 100);
 });
 
 test('collisions place the ship outside the obstacle and cut thrust', () => {
@@ -37,7 +40,7 @@ test('movement is consistent across frame rates and long frames are clamped', ()
     high = new Flight();
   simulate(low, 5, {}, 30);
   simulate(high, 5, {}, 120);
-  assert.ok(low.position.distanceTo(high.position) < 1);
+  assert.ok(low.position.distanceTo(high.position) < 3);
   const before = low.position.clone();
   low.update(5, { boost: true });
   assert.ok(low.position.distanceTo(before) <= BOOST_SPEED * 0.05);

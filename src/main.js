@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Flight, BOOST_SPEED } from './flight.js';
 import { findApproachingPlanet } from './approach.js';
+import { getDestinationProximity } from './discovery.js';
 import { createShip } from './ship.js';
 import { createWorld } from './world.js';
 import { createAudio } from './audio.js';
@@ -24,9 +25,9 @@ document.querySelector('#app').innerHTML = `
     <header class="topbar">
       <a class="brand" href="/" aria-label="Toma’s Space Ship home">${icon}<span>TOMA’S SPACE SHIP<small>3D SPACE ADVENTURE</small></span></a>
       <div class="system-label"><span class="status-dot"></span> SOLAR SYSTEM <span class="divider">/</span> <span class="muted">FREE EXPLORATION</span></div>
-      <div id="fuel-cell-tracker" class="fuel-cell-tracker" role="progressbar" aria-label="Nuclear fuel cells collected" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
-        <span class="tracker-icon" aria-hidden="true">☢</span>
-        <span class="tracker-copy"><span class="tracker-label">FUEL CELLS</span><strong><span id="fuel-cell-count">00</span><span class="tracker-total"> / <span id="fuel-cell-total">00</span></span></strong></span>
+      <div id="fuel-cell-tracker" class="fuel-cell-tracker" role="progressbar" aria-label="Power cells collected" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+        <span class="tracker-icon" aria-hidden="true">⚡</span>
+        <span class="tracker-copy"><span class="tracker-label">POWER CELLS</span>
         <span id="fuel-cell-pips" class="fuel-cell-pips" aria-hidden="true"></span>
       </div>
       <nav aria-label="Game menu"><button id="sound-button" aria-label="Mute audio" aria-pressed="false">♪</button><button id="pilot-button" aria-label="Open astronaut and gear"><span id="pilot-badge-avatar" class="pilot-badge-avatar"></span><span id="pilot-badge-name">PILOT</span></button><button id="help-button" aria-label="Open flight controls">?</button><button id="pause-button" aria-label="Pause game" disabled>Ⅱ</button></nav>
@@ -47,7 +48,7 @@ document.querySelector('#app').innerHTML = `
     <section id="mission" class="mission" hidden>
       <div class="eyebrow">SOMETHING TO DISCOVER</div>
       <h2 id="mission-title">The first signal</h2>
-      <p id="mission-description">Follow the marker. Fly within 100 m to discover.</p>
+      <p id="mission-description">Follow the marker. Get close to discover.</p>
       <button id="target-button" class="text-button">Next destination <span>→</span></button>
     </section>
 
@@ -86,12 +87,12 @@ document.querySelector('#app').innerHTML = `
     <footer class="flight-deck">
       <section class="telemetry">
         <div class="eyebrow">VELOCITY <span id="flight-mode">STANDBY</span></div>
-        <div class="speed"><span id="speed">000</span><span class="unit">m/s</span><svg viewBox="0 0 100 24" aria-hidden="true"><path d="M0 21h6V17h6v4h6V13h6v8h6V9h6v12h6V5h6v16h6V1h6v20h6V5h6v16h6V9h6v12h6V13h6v8h6" fill="none" stroke="currentColor"/></svg></div>
+        <div class="speed"><span id="speed">000</span><svg viewBox="0 0 100 24" aria-hidden="true"><path d="M0 21h6V17h6v4h6V13h6v8h6V9h6v12h6V5h6v16h6V1h6v20h6V5h6v16h6V9h6v12h6V13h6v8h6" fill="none" stroke="currentColor"/></svg></div>
         <div class="meter-row"><span>THRUST</span><div class="meter"><i id="thrust-bar"></i></div><span id="thrust-value">32%</span></div>
         <div class="meter-row"><span>BOOST</span><div class="meter boost"><i id="boost-bar"></i></div><span id="boost-value">100%</span></div>
       </section>
       <div class="bottom-center"><div class="ship-name">${icon}<span>WANDERER <span class="muted">/ EXPLORER CLASS</span></span><span class="status-dot"></span></div><div class="controls-strip"><span><kbd>W</kbd><kbd>S</kbd> Thrust</span><span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> Steer</span><span><kbd>SHIFT</kbd> Boost</span></div></div>
-      <section class="navigation"><canvas id="radar" width="240" height="240" aria-label="Radar showing nearby destinations"></canvas><div><span class="eyebrow">EXPLORATION</span><strong><span id="discovered-count">00</span><span class="muted"> / <span id="destination-count">00</span></span></strong><small>PLACES DISCOVERED</small></div></section>
+      <section class="navigation" aria-label="Navigation"><canvas id="radar" width="240" height="240" aria-label="Radar showing nearby destinations"></canvas></section>
     </footer>
 
     <div id="touch-controls" hidden>
@@ -126,7 +127,7 @@ function startGame() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100000);
   const world = createWorld(scene);
-  const { ship, exhaust, updateAstronaut } = createShip();
+  const { ship, exhaust, updateAstronaut, updateEngineFlames } = createShip();
   scene.add(ship);
   const flight = new Flight();
   const audio = createAudio();
@@ -143,13 +144,14 @@ function startGame() {
   let elapsed = 0;
   let previousTime = performance.now();
   let hudTimer = 0;
+  let lastFlightInputAt = performance.now();
+  let idleReminderShown = false;
   let toastTimeout;
   let fuelCellTimeout;
   let lastCollision = -10;
   let cockpit = false;
   let pointerLocked = false;
   let activeApproachId = null;
-  $('fuel-cell-total').textContent = world.destinations.length.toString().padStart(2, '0');
   $('fuel-cell-tracker').setAttribute('aria-valuemax', world.destinations.length);
   $('fuel-cell-pips').replaceChildren(
     ...world.destinations.map(() => {
@@ -209,6 +211,9 @@ function startGame() {
 
     $('learning-title').textContent =
       `${destination.name.replace(/ (flyby|orbit|outpost|overlook|waypoint|approach)$/i, '')} field note`;
+    $('learning-card').querySelector('.learning-card-top .eyebrow').textContent = hasQuiz
+      ? 'QUICK SPACE QUIZ'
+      : 'OPTIONAL FIELD NOTE';
     $('learning-fact').hidden = !hasFact;
     $('learning-fact').textContent = fact;
     $('learning-quiz').hidden = !hasQuiz;
@@ -225,11 +230,16 @@ function startGame() {
         button.textContent = choice;
         button.addEventListener('click', () => {
           const correct = choice === quiz.answer;
+          $('learning-choices').querySelectorAll('.learning-choice').forEach((option) => {
+            option.classList.remove('is-correct', 'is-incorrect');
+          });
+          button.classList.add(correct ? 'is-correct' : 'is-incorrect');
           $('learning-feedback').textContent = correct
             ? `That’s right!${quiz.explanation ? ` ${quiz.explanation}` : ''}`
             : 'Not quite. Try another answer.';
           $('learning-feedback').classList.toggle('correct', correct);
           $('learning-feedback').hidden = false;
+          audio.quizAnswer(correct);
         });
         $('learning-choices').append(button);
       });
@@ -242,7 +252,7 @@ function startGame() {
     $('mission-title').textContent = target.name;
     $('mission-description').textContent = target.discovered
       ? target.info
-      : 'Follow the marker. Fly within 100 m to discover.';
+      : 'Follow the marker. Get close to discover.';
     $('target-label').textContent = target.name.toUpperCase();
   }
 
@@ -264,6 +274,7 @@ function startGame() {
   function resume() {
     dialog.close();
     paused = false;
+    lastFlightInputAt = performance.now();
     audio.resume();
     game.dataset.state = 'flying';
     clearInput();
@@ -271,6 +282,8 @@ function startGame() {
 
   function launch() {
     launched = true;
+    lastFlightInputAt = performance.now();
+    idleReminderShown = false;
     $('intro').hidden = true;
     $('mission').hidden = false;
     $('reticle').hidden = false;
@@ -300,6 +313,8 @@ function startGame() {
         `<h2 id="dialog-title">A moment of quiet.</h2><p>Your journey will be here when you’re ready.</p><button class="primary" id="resume-button">Resume exploration <span>↗</span></button><button class="secondary" id="reset-button">Start a new expedition</button>`;
       $('reset-button').addEventListener('click', () => {
         flight.reset();
+        lastFlightInputAt = performance.now();
+        idleReminderShown = false;
         world.destinations.forEach((d) => {
           d.discovered = false;
           d.visitActive = false;
@@ -487,6 +502,7 @@ function startGame() {
     if (flightKeys.has(event.code)) {
       event.preventDefault();
       keys.add(event.code);
+      lastFlightInputAt = performance.now();
       if (['KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code))
         mouse.x = mouse.y = 0;
     }
@@ -536,6 +552,7 @@ function startGame() {
   });
   document.addEventListener('mousemove', (event) => {
     if (pointerLocked && !paused) {
+      if (event.movementX || event.movementY) lastFlightInputAt = performance.now();
       mouse.x = THREE.MathUtils.clamp(mouse.x + event.movementX * 0.002, -1, 1);
       mouse.y = THREE.MathUtils.clamp(mouse.y - event.movementY * 0.002, -1, 1);
     }
@@ -544,6 +561,7 @@ function startGame() {
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       if (paused) return;
+      lastFlightInputAt = performance.now();
       button.setPointerCapture(event.pointerId);
       keys.add(button.dataset.control);
     });
@@ -578,12 +596,16 @@ function startGame() {
   touchStick.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     if (paused || joystickPointerId !== null) return;
+    lastFlightInputAt = performance.now();
     joystickPointerId = event.pointerId;
     touchStick.setPointerCapture(event.pointerId);
     updateTouchSteer(event);
   });
   touchStick.addEventListener('pointermove', (event) => {
-    if (event.pointerId === joystickPointerId && !paused) updateTouchSteer(event);
+    if (event.pointerId === joystickPointerId && !paused) {
+      lastFlightInputAt = performance.now();
+      updateTouchSteer(event);
+    }
   });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     touchStick.addEventListener(type, (event) => {
@@ -682,17 +704,10 @@ function startGame() {
       .toArray()
       .map((n) => `${n >= 0 ? '+' : '−'}${Math.abs(Math.round(n)).toString().padStart(5, '0')}`)
       .join(' / ');
-    const found = world.destinations
-      .filter((d) => d.discovered)
-      .length.toString()
-      .padStart(2, '0');
-    $('discovered-count').textContent = found;
-    $('destination-count').textContent = world.destinations.length.toString().padStart(2, '0');
-    $('fuel-cell-count').textContent = fuelCells.toString().padStart(2, '0');
     $('fuel-cell-tracker').setAttribute('aria-valuenow', fuelCells);
     $('fuel-cell-tracker').setAttribute(
       'aria-valuetext',
-      `${fuelCells} of ${world.destinations.length} nuclear fuel cells collected`,
+      `${fuelCells} of ${world.destinations.length} power cells collected`,
     );
     [...$('fuel-cell-pips').children].forEach((pip, index) => {
       pip.classList.toggle('collected', index < fuelCells);
@@ -739,6 +754,12 @@ function startGame() {
       activeApproachId,
     );
     if (approaching) {
+      if (
+        activeApproachId !== approaching.planet.id &&
+        approaching.planet.type !== 'star'
+      ) {
+        audio.approach();
+      }
       activeApproachId = approaching.planet.id;
       $('approach-planet').textContent = approaching.planet.name.toUpperCase();
       alert.hidden = false;
@@ -753,6 +774,18 @@ function startGame() {
     previousTime = now;
     if (!paused) {
       elapsed += dt;
+      const steeringInput = Math.abs(mouse.x) > 0.05 || Math.abs(mouse.y) > 0.05;
+      const touchInput = Math.abs(touchSteer.x) > 0.05 || Math.abs(touchSteer.y) > 0.05;
+      if (keys.size || steeringInput || touchInput) {
+        lastFlightInputAt = performance.now();
+      } else if (
+        launched &&
+        !idleReminderShown &&
+        now - lastFlightInputAt >= 8000
+      ) {
+        idleReminderShown = true;
+        notify('Ready to explore? Hold W or tap THRUST to move toward the destination marker.');
+      }
       const pressed = (...codes) => (codes.some((code) => keys.has(code)) ? 1 : 0);
       flight.update(dt, {
         keyboardSteering: pressed(
@@ -782,12 +815,15 @@ function startGame() {
         notify('Proximity alert. Thrust cut — steer away, then press W.');
       }
       for (const destination of world.destinations) {
-        const distance = flight.position.distanceTo(destination.position);
-        if (distance < 100 && !destination.visitActive) {
+        const { distance, range } = getDestinationProximity(
+          destination,
+          world.planets,
+          flight.position,
+        );
+        if (distance < range && !destination.visitActive) {
           destination.visitActive = true;
           const firstVisit = !destination.discovered;
           destination.discovered = true;
-          audio.discover();
           const energyRestored = firstVisit
             ? Math.min(35, Math.max(0, Math.round(100 - flight.energy)))
             : 0;
@@ -807,6 +843,7 @@ function startGame() {
           }
           const count = world.destinations.filter((d) => d.discovered).length;
           if (firstVisit) {
+            audio.discover();
             celebrateFuelCell(energyRestored, pilotCellEarned);
             showLearningCard(destination);
           }
@@ -826,7 +863,7 @@ function startGame() {
             }
             updateTarget();
           }
-        } else if (distance > 140) {
+        } else if (distance > range + 40) {
           destination.visitActive = false;
         }
       }
@@ -846,10 +883,15 @@ function startGame() {
     }
     for (const plume of exhaust) {
       const strength = !launched ? 0.18 : flight.speed / BOOST_SPEED;
-      plume.scale.y = 0.3 + strength * 1.6 + Math.sin(elapsed * 37) * 0.035;
-      plume.position.z = 3.2 + 1.8 * plume.scale.y;
+      const thrustAmount = launched ? flight.throttle : 0;
+      const flameWidth = 1.1 + thrustAmount * 0.12;
+      const flameLength =
+        0.4 + strength * 1.8 + thrustAmount * 0.15 + Math.sin(elapsed * 37) * 0.035;
+      plume.scale.set(flameWidth, flameLength, flameWidth);
+      plume.position.z = 3.2 + 2 * plume.scale.y;
       plume.material.opacity = 0.25 + strength * 0.5;
     }
+    updateEngineFlames({ throttle: flight.throttle, boosting: flight.boosting, active: launched });
     hudTimer += dt;
     if (hudTimer > 0.1) {
       updateHUD();

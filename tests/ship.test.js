@@ -13,6 +13,24 @@ test('ship includes a cockpit, shaped fuselage, swept wings, and paired engines'
   assert.ok(ship.getObjectByName('Port engine nacelle'));
   assert.ok(ship.getObjectByName('Starboard engine nacelle'));
   assert.equal(exhaust.length, 2);
+  assert.ok(exhaust.every((plume) => plume.rotation.x > 0));
+});
+
+test('engine flames turn warm under thrust and red-orange while boosting', () => {
+  const { exhaust, updateEngineFlames } = createShip();
+
+  updateEngineFlames({ active: false });
+  assert.equal(exhaust[0].material.color.getHex(), 0x7affdb);
+
+  updateEngineFlames({ active: true, throttle: 0.32 });
+  const thrustColor = exhaust[0].material.color.clone();
+  assert.ok(thrustColor.r > thrustColor.g && thrustColor.g > thrustColor.b);
+  assert.equal(exhaust[0].material.color.getHex(), exhaust[1].material.color.getHex());
+
+  updateEngineFlames({ active: true, throttle: 1, boosting: true });
+  const boostColor = exhaust[0].material.color.clone();
+  assert.ok(boostColor.r > boostColor.g && boostColor.g > boostColor.b);
+  assert.ok(boostColor.g < thrustColor.g);
 });
 
 test('pilot customization updates the cockpit astronaut and optional gear', () => {

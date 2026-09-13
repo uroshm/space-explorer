@@ -20,6 +20,30 @@ test('approach alert ignores distant worlds and worlds outside the aiming cone',
   assert.equal(findApproachingPlanet([distant, offAxis], ship, forward), null);
 });
 
+test('large nearby planets get a wider aiming cone than small worlds', () => {
+  const pointAtAngle = (distance, degrees) => {
+    const angle = (degrees * Math.PI) / 180;
+    return {
+      x: Math.sin(angle) * distance,
+      y: 0,
+      z: -Math.cos(angle) * distance,
+    };
+  };
+  const largePlanet = {
+    id: 'jupiter',
+    radius: 2500,
+    position: pointAtAngle(6000, 24),
+  };
+  const smallPlanet = {
+    id: 'mercury',
+    radius: 100,
+    position: pointAtAngle(4900, 17),
+  };
+
+  assert.equal(findApproachingPlanet([largePlanet], ship, forward)?.planet, largePlanet);
+  assert.equal(findApproachingPlanet([smallPlanet], ship, forward), null);
+});
+
 test('the current target stays selected briefly while another world is closer', () => {
   const current = { id: 'jupiter', radius: 100, position: { x: 0, y: 0, z: -5800 } };
   const closer = { id: 'mars', radius: 100, position: { x: 0, y: 0, z: -3000 } };

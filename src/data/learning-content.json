@@ -1,6 +1,39 @@
 {
   "Mercury": {
-    "fact": "A day from one sunrise to the next on Mercury lasts longer than its year."
+    "fact": "A day from one sunrise to the next on Mercury lasts longer than its year.",
+    "quiz": {
+      "question": "Which planet races around the Sun in just 88 Earth days?",
+      "choices": ["Mercury", "Mars", "Neptune"],
+      "answer": "Mercury",
+      "explanation": "Mercury is the fastest planet to orbit the Sun."
+    }
+  },
+  "Venus": {
+    "fact": "Venus is the hottest planet, even though Mercury is closer to the Sun.",
+    "quiz": {
+      "question": "What makes Venus the hottest planet?",
+      "choices": ["Its thick atmosphere traps heat", "It is closest to the Sun", "It has a giant fire inside"],
+      "answer": "Its thick atmosphere traps heat",
+      "explanation": "Venus's thick air keeps heat from escaping."
+    }
+  },
+  "Earth": {
+    "fact": "Earth is the only planet we know of with life on it.",
+    "quiz": {
+      "question": "Which planet has oceans of liquid water on its surface?",
+      "choices": ["Venus", "Earth", "Jupiter"],
+      "answer": "Earth",
+      "explanation": "Earth's surface has oceans, lakes, and rivers of liquid water."
+    }
+  },
+  "Mars": {
+    "fact": "Mars looks red because iron in its rocks and dust has rusted.",
+    "quiz": {
+      "question": "Why does Mars look red?",
+      "choices": ["Its dusty rocks contain rusty iron", "It is covered in red flowers", "It glows like a star"],
+      "answer": "Its dusty rocks contain rusty iron",
+      "explanation": "Rusty iron in Martian rocks and dust gives the planet its reddish look."
+    }
   },
   "Moon": {
     "fact": "The Moon is slowly moving away from Earth by a few centimeters each year."
@@ -15,7 +48,31 @@
     }
   },
   "Saturn": {
-    "fact": "Saturn's rings are made mostly of water ice, with some rocky material mixed in."
+    "fact": "Saturn's rings are made mostly of water ice, with some rocky material mixed in.",
+    "quiz": {
+      "question": "What are Saturn's rings made mostly of?",
+      "choices": ["Water ice and rock", "Hot lava", "Clouds of gas"],
+      "answer": "Water ice and rock",
+      "explanation": "The rings are made of countless icy and rocky pieces, from dust to chunks bigger than a house."
+    }
+  },
+  "Uranus": {
+    "fact": "Uranus spins on its side as it travels around the Sun.",
+    "quiz": {
+      "question": "Which planet spins almost on its side?",
+      "choices": ["Uranus", "Mercury", "Earth"],
+      "answer": "Uranus",
+      "explanation": "Uranus is tilted so much that it rolls around the Sun like a ball."
+    }
+  },
+  "Neptune": {
+    "fact": "One year on Neptune lasts about 165 Earth years.",
+    "quiz": {
+      "question": "Which planet takes about 165 Earth years to orbit the Sun?",
+      "choices": ["Saturn", "Neptune", "Mars"],
+      "answer": "Neptune",
+      "explanation": "Neptune is very far from the Sun, so its trip around it takes a long time."
+    }
   },
   "Asteroid Belt": {
     "fact": "The asteroid belt lies between Mars and Jupiter. Its asteroids are spread very far apart."

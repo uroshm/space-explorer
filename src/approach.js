@@ -1,6 +1,8 @@
 export const APPROACH_ALERT_DISTANCE = 5000;
 export const APPROACH_TARGET_RETENTION_DISTANCE = 5800;
 export const APPROACH_AIM_DOT_THRESHOLD = 0.9659;
+const MAX_SIZE_AIM_LEEWAY = (12 * Math.PI) / 180;
+const SIZE_AIM_LEEWAY_SCALE = 0.5;
 
 export function findApproachingPlanet(
   planets,
@@ -16,6 +18,10 @@ export function findApproachingPlanet(
     const dz = planet.position.z - shipPosition.z;
     const distance = Math.hypot(dx, dy, dz);
     const surfaceDistance = distance - planet.radius;
+    const apparentRadius =
+      distance > 0 ? Math.asin(Math.min(planet.radius / distance, 1)) : Math.PI / 2;
+    const aimLeeway = Math.min(apparentRadius * SIZE_AIM_LEEWAY_SCALE, MAX_SIZE_AIM_LEEWAY);
+    const aimDotThreshold = Math.cos(Math.acos(APPROACH_AIM_DOT_THRESHOLD) + aimLeeway);
     const aimDot =
       distance === 0
         ? 0
@@ -23,7 +29,7 @@ export function findApproachingPlanet(
 
     if (
       surfaceDistance < APPROACH_TARGET_RETENTION_DISTANCE &&
-      aimDot >= APPROACH_AIM_DOT_THRESHOLD
+      aimDot >= aimDotThreshold
     ) {
       candidates.push({ planet, surfaceDistance });
     }

@@ -12,17 +12,33 @@ export function createAudio() {
 
   const music = track('bg-music', 0.3, true);
   const engine = track('engine', 0, true);
-  const powerup = track('powerup', 0.35);
+  const found = track('found', 0.18);
+  const epic = track('epic', 0.2);
+  const correct = track('correct', 0.18);
+  const incorrect = track('incorrect', 0.14);
+  const effects = [found, epic, correct, incorrect];
+  const announcementEffects = [found, epic];
+  const epicCooldownMs = 10_000;
+  const engineEffectMix = 0.4;
   engine.preservesPitch = false;
-  const tracks = [music, engine, powerup];
+  const tracks = [music, engine, ...effects];
   const musicVolume = 0.3;
-  powerup.addEventListener('ended', () => {
-    if (active) music.volume = musicVolume;
+  const announcementMusicVolume = 0.24;
+  announcementEffects.forEach((effect) => {
+    effect.addEventListener('ended', () => {
+      if (active && announcementEffects.every((announcement) => announcement.paused))
+        music.volume = musicVolume;
+    });
   });
   let active = false;
   let muted = false;
+  let lastEpicAt = Number.NEGATIVE_INFINITY;
   const play = (audio) => {
     audio.play().catch(() => {});
+  };
+  const playEffect = (audio) => {
+    audio.currentTime = 0;
+    play(audio);
   };
 
   return {
@@ -30,19 +46,23 @@ export function createAudio() {
       active = true;
       play(music);
       play(engine);
-      // Unlock the pickup clip during the same user gesture on mobile browsers.
-      powerup.muted = true;
-      play(powerup);
-      powerup.pause();
-      powerup.currentTime = 0;
-      powerup.muted = muted;
+      // Unlock short effects during the same user gesture on mobile browsers.
+      effects.forEach((effect) => {
+        effect.muted = true;
+        play(effect);
+        effect.pause();
+        effect.currentTime = 0;
+        effect.muted = muted;
+      });
     },
     pause() {
       active = false;
       tracks.forEach((audio) => audio.pause());
       engine.volume = 0;
       music.volume = musicVolume;
-      powerup.currentTime = 0;
+      effects.forEach((effect) => {
+        effect.currentTime = 0;
+      });
     },
     toggleMute() {
       muted = !muted;
@@ -60,17 +80,27 @@ export function createAudio() {
       const thrust = flight.boosting ? 1 : flight.throttle;
       const volume = thrust * (flight.boosting ? 0.5 : 0.3);
       const blend = 1 - Math.exp(-dt * 5);
-      if (!powerup.paused) engine.volume = 0;
-      else engine.volume += (volume - engine.volume) * blend;
+      const engineMix = effects.some((effect) => !effect.paused) ? engineEffectMix : 1;
+      engine.volume += (volume * engineMix - engine.volume) * blend;
       engine.playbackRate +=
         (0.8 + thrust * 0.4 + (flight.boosting ? 0.2 : 0) - engine.playbackRate) * blend;
     },
     discover() {
       if (!active || muted) return;
-      powerup.currentTime = 0;
-      engine.volume = 0;
-      music.volume = 0.06;
-      play(powerup);
+      music.volume = announcementMusicVolume;
+      playEffect(found);
+    },
+    approach() {
+      if (!active || muted) return;
+      const now = performance.now();
+      if (!epic.paused || now - lastEpicAt < epicCooldownMs) return;
+      lastEpicAt = now;
+      music.volume = announcementMusicVolume;
+      playEffect(epic);
+    },
+    quizAnswer(isCorrect) {
+      if (!active || muted) return;
+      playEffect(isCorrect ? correct : incorrect);
     },
   };
 }

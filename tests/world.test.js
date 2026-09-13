@@ -97,7 +97,7 @@ test('distant comet appears, fades, and returns on its randomized schedule', () 
   assert.equal(comet.visible, true);
 });
 
-test('planet positions are spread while catalog diameters remain unchanged', () => {
+test('planet positions use the compact layout while catalog diameters remain unchanged', () => {
   const scene = new THREE.Scene();
   const world = createWorld(scene);
   const sourceBodies = resolveBodies(bodyCatalog);
@@ -107,7 +107,7 @@ test('planet positions are spread while catalog diameters remain unchanged', () 
     const placed = world.planets.find((planet) => planet.id === id);
     assert.ok(placed);
     source.position.forEach((coordinate, axis) => {
-      assert.ok(Math.abs(placed.position.getComponent(axis) - coordinate * 1.8) < 1e-8);
+      assert.ok(Math.abs(placed.position.getComponent(axis) - coordinate * 1.72) < 1e-8);
     });
     assert.equal(placed.radius, source.diameter / 2);
   }

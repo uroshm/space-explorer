@@ -23,7 +23,7 @@ const noiseGLSL = `
 `;
 
 export function createWorld(scene) {
-  const layoutScale = 1.8;
+  const layoutScale = 1.72;
   const bodies = resolveBodies(bodyCatalog).map((body) => ({
     ...body,
     position: body.position.map((coordinate) => coordinate * layoutScale),

@@ -22,12 +22,13 @@ Requires Node.js 22.12+ (or a newer supported LTS release) and a browser with We
 
 ```sh
 npm install
-npm run dev
+npm run start # or: npm run dev
 ```
 
 Open the local URL printed by Vite, then click **Begin exploration** or press **Enter**.
 
 ```sh
+npm run clean       # Remove generated build output and Vite cache
 npm run build       # Production files in dist/
 npm run preview     # Serve the production build locally
 npm test            # Flight simulation tests
@@ -79,7 +80,7 @@ The script checks the production build and pushes `main`; GitHub Actions then up
 
 Mouse steering works like a virtual joystick: move away from the center to turn, then move back to fly straight. Keyboard steering is always available; steering keys clear any mouse turn. Touch devices have on-screen steering, throttle, and boost controls.
 
-Fly within 100 meters of a site to discover it and collect a nuclear fuel cell. Each first visit in an expedition awards a cell that restores up to 35 boost-energy points; the HUD tracks collected cells. The next undiscovered destination is selected automatically, and you can cycle destinations with T. Colliding with a planet or asteroid pushes the ship clear and cuts thrust; steer away and press W to continue. Pause to restart the expedition. Switching away from the window pauses the game.
+Get close to a site to discover it and collect a nuclear fuel cell. Each first visit in an expedition awards a cell that restores up to 35 boost-energy points; the HUD tracks collected cells. The next undiscovered destination is selected automatically, and you can cycle destinations with T. Colliding with a planet or asteroid pushes the ship clear and cuts thrust; steer away and press W to continue. Pause to restart the expedition. Switching away from the window pauses the game.
 
 Creating an astronaut is optional: choose **Create an astronaut** on the start screen or open **Pilot** while playing. Fuel cells found at new destinations unlock suit colors and helmet accessories. The pilot, selected gear, and once-only cosmetic rewards save in the current browser; no account or sign-in is needed, and progress does not sync between devices.
 

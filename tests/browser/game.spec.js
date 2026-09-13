@@ -16,6 +16,9 @@ test('launch, fly, discover a beacon, pause, and restart without rendering error
   await page.screenshot({ path: 'test-results/launch-desktop.png' });
   await page.getByRole('button', { name: 'Begin exploration' }).click();
   await expect(page.locator('#game')).toHaveAttribute('data-state', 'flying');
+  await expect(page.locator('#fuel-cell-tracker')).toHaveAttribute('aria-valuenow', '0');
+  await expect(page.locator('#fuel-cell-pips i')).toHaveCount(20);
+  await expect(page.locator('.navigation')).not.toContainText('PLACES DISCOVERED');
   await expect
     .poll(() =>
       page
@@ -39,14 +42,14 @@ test('launch, fly, discover a beacon, pause, and restart without rendering error
   await expect
     .poll(async () => Number(await page.locator('#speed').textContent()))
     .toBeGreaterThan(180);
-  await expect(page.locator('#discovered-count')).toHaveText('01', { timeout: 15000 });
-  await expect(page.locator('#fuel-cell-count')).toHaveText('01');
+  await expect(page.locator('#fuel-cell-tracker')).toHaveAttribute('aria-valuenow', '1');
+  await expect(page.locator('#fuel-cell-pips i.collected')).toHaveCount(1);
   await expect(page.locator('#fuel-cell-pop')).toBeVisible();
   await expect(page.locator('#fuel-cell-reward')).toHaveText(/^(?:\+\d+ BOOST|BOOST FULL)$/);
   await expect
     .poll(() =>
       page
-        .locator('audio[data-sound="powerup"]')
+        .locator('audio[data-sound="found"]')
         .evaluate((audio) => audio.currentTime > 0 && audio.volume <= 0.35),
     )
     .toBe(true);
@@ -67,13 +70,118 @@ test('launch, fly, discover a beacon, pause, and restart without rendering error
     await page.locator('audio').evaluateAll((tracks) => tracks.every((audio) => audio.paused)),
   ).toBe(true);
   await page.getByRole('button', { name: 'Start a new expedition' }).click();
-  await expect(page.locator('#discovered-count')).toHaveText('00');
-  await expect(page.locator('#fuel-cell-count')).toHaveText('00');
+  await expect(page.locator('#fuel-cell-tracker')).toHaveAttribute('aria-valuenow', '0');
+  await expect(page.locator('#fuel-cell-pips i.collected')).toHaveCount(0);
   await expect(page.locator('#mission-title')).toHaveText('The first signal');
   await page.keyboard.press('KeyT');
   await expect(page.locator('#mission-title')).toHaveText('Solar flyby');
   await expect(page.locator('#log-button')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('reminds an idle pilot how to start moving after launch', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin exploration' }).click();
+  await expect(page.locator('#toast')).toHaveText(
+    'Ready to explore? Hold W or tap THRUST to move toward the destination marker.',
+    { timeout: 12000 },
+  );
+});
+
+test('learning quiz choices are large tap targets on a phone', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await page.goto('/');
+  await page.locator('#learning-card').evaluate((card) => {
+    card.hidden = false;
+    card.querySelector('#learning-quiz').hidden = false;
+    const choices = card.querySelector('#learning-choices');
+    for (const label of ['Mercury', 'Venus', 'Earth']) {
+      const button = document.createElement('button');
+      button.className = 'learning-choice';
+      button.textContent = label;
+      choices.append(button);
+    }
+  });
+
+  const choices = page.locator('.learning-choice');
+  await expect(choices).toHaveCount(3);
+  for (const choice of await choices.all()) {
+    const box = await choice.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(64);
+    expect(box.width).toBeGreaterThan(300);
+  }
+  await choices.nth(1).tap();
+  await context.close();
+});
+
+test('epic approach sound waits ten seconds before playing again', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const originalNow = performance.now;
+    const originalPlay = HTMLMediaElement.prototype.play;
+    const originalPause = HTMLMediaElement.prototype.pause;
+    let now = 0;
+    const sounds = [];
+    Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+    HTMLMediaElement.prototype.play = function () {
+      Object.defineProperty(this, 'paused', { configurable: true, value: false });
+      sounds.push(this.dataset.sound);
+      return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function () {
+      Object.defineProperty(this, 'paused', { configurable: true, value: true });
+    };
+
+    try {
+      const { createAudio } = await import('/src/audio.js');
+      const audio = createAudio();
+      audio.resume();
+      sounds.length = 0;
+
+      const track = (name) =>
+        [...document.querySelectorAll(`audio[data-sound="${name}"]`)].at(-1);
+      const music = track('bg-music');
+      const engine = track('engine');
+      const epic = track('epic');
+      const flight = { boosting: false, throttle: 1 };
+      audio.update(1, flight);
+      const engineNormalVolume = engine.volume;
+      audio.approach();
+      const cueMusicVolume = music.volume;
+      const epicVolume = epic.volume;
+      audio.update(1, flight);
+      const engineDuringEffectVolume = engine.volume;
+      epic.pause();
+      now = 9999;
+      audio.approach();
+      now = 10_000;
+      audio.approach();
+      audio.pause();
+
+      return {
+        plays: sounds.filter((sound) => sound === 'epic').length,
+        cueMusicVolume,
+        epicVolume,
+        engineNormalVolume,
+        engineDuringEffectVolume,
+      };
+    } finally {
+      HTMLMediaElement.prototype.play = originalPlay;
+      HTMLMediaElement.prototype.pause = originalPause;
+      Object.defineProperty(performance, 'now', { configurable: true, value: originalNow });
+    }
+  });
+
+  expect(result.plays).toBe(2);
+  expect(result.epicVolume).toBeLessThan(result.cueMusicVolume);
+  expect(result.cueMusicVolume).toBeGreaterThan(0.2);
+  expect(result.engineDuringEffectVolume).toBeGreaterThan(0);
+  expect(result.engineDuringEffectVolume).toBeLessThan(result.engineNormalVolume);
 });
 
 test('controls open before launch and touch controls work at a mobile viewport', async ({
