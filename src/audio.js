@@ -17,7 +17,9 @@ export function createAudio() {
   const tracks = [music, engine, found];
   let active = false;
   let muted = false;
-  const play = (audio) => { audio.play().catch(() => {}); };
+  const play = (audio) => {
+    audio.play().catch(() => {});
+  };
 
   return {
     resume() {
@@ -39,8 +41,13 @@ export function createAudio() {
     },
     toggleMute() {
       muted = !muted;
-      tracks.forEach((audio) => { audio.muted = muted; });
-      if (active && !muted) { play(music); play(engine); }
+      tracks.forEach((audio) => {
+        audio.muted = muted;
+      });
+      if (active && !muted) {
+        play(music);
+        play(engine);
+      }
       return muted;
     },
     update(dt, flight, braking) {
@@ -49,7 +56,8 @@ export function createAudio() {
       const volume = thrust * (flight.boosting ? 0.5 : 0.3);
       const blend = 1 - Math.exp(-dt * 5);
       engine.volume += (volume - engine.volume) * blend;
-      engine.playbackRate += (0.8 + thrust * 0.4 + (flight.boosting ? 0.2 : 0) - engine.playbackRate) * blend;
+      engine.playbackRate +=
+        (0.8 + thrust * 0.4 + (flight.boosting ? 0.2 : 0) - engine.playbackRate) * blend;
     },
     discover() {
       if (!active || muted) return;

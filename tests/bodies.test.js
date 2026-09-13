@@ -24,14 +24,32 @@ test('invalid catalogs fail with useful errors', () => {
   assert.throws(() => resolveBodies([{ ...catalog[0], diameter: -1 }]), /diameter/);
   assert.throws(() => resolveBodies([{ ...catalog[2], parent: 'missing' }]), /unknown parent/);
   assert.throws(() => resolveBodies([{ ...catalog[2], parent: 'moon' }]), /circular/);
-  assert.throws(() => resolveBodies([{ ...catalog[0], features: { spot: { color: 'red' } } }]), /spot needs/);
+  assert.throws(
+    () => resolveBodies([{ ...catalog[0], features: { spot: { color: 'red' } } }]),
+    /spot needs/,
+  );
 });
-
 
 test('requested worlds are present with Earth’s moon and Jupiter’s spot', () => {
   const bodies = resolveBodies(catalog);
-  for (const id of ['earth', 'mars', 'moon', 'neptune', 'saturn', 'ceres', 'pluto', 'haumea', 'makemake', 'eris', 'jupiter', 'uranus']) {
-    assert.ok(bodies.some((body) => body.id === id), `Missing ${id}`);
+  for (const id of [
+    'earth',
+    'mars',
+    'moon',
+    'neptune',
+    'saturn',
+    'ceres',
+    'pluto',
+    'haumea',
+    'makemake',
+    'eris',
+    'jupiter',
+    'uranus',
+  ]) {
+    assert.ok(
+      bodies.some((body) => body.id === id),
+      `Missing ${id}`,
+    );
   }
   assert.equal(catalog.find((body) => body.id === 'moon').parent, 'earth');
   assert.deepEqual(bodies.find((body) => body.id === 'moon').position, [-4050, -1380, -6000]);
@@ -39,12 +57,16 @@ test('requested worlds are present with Earth’s moon and Jupiter’s spot', ()
   for (const body of bodies) {
     for (const other of bodies) {
       if (body.id === other.id) continue;
-      const distance = Math.hypot(...body.position.map((value, axis) => value - other.position[axis]));
-      assert.ok(distance > (body.diameter + other.diameter) / 2, `${body.name} overlaps ${other.name}`);
+      const distance = Math.hypot(
+        ...body.position.map((value, axis) => value - other.position[axis]),
+      );
+      assert.ok(
+        distance > (body.diameter + other.diameter) / 2,
+        `${body.name} overlaps ${other.name}`,
+      );
     }
   }
 });
-
 
 test('storm features and Saturn rings are configured', () => {
   const bodies = resolveBodies(catalog);

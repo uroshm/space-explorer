@@ -33,15 +33,21 @@ export class Flight {
     this.boosting = Boolean(input.boost && !input.brake && !this.boostLocked && this.energy > 0);
     this.energy = MathUtils.clamp(this.energy + (this.boosting ? -24 : 14) * dt, 0, 100);
     if (this.energy === 0) this.boostLocked = true;
-    const targetSpeed = input.brake ? 0 : this.boosting ? BOOST_SPEED : this.throttle * CRUISE_SPEED;
+    const targetSpeed = input.brake
+      ? 0
+      : this.boosting
+        ? BOOST_SPEED
+        : this.throttle * CRUISE_SPEED;
     this.speed = MathUtils.damp(this.speed, targetSpeed, input.brake ? 3.5 : 1.5, dt);
     const sensitivity = (this.boosting ? 0.7 : 1.15) * (input.keyboardSteering ? 1.4 : 1);
-    rotation.setFromEuler(new Euler(
-      (input.pitch || 0) * dt * sensitivity,
-      -(input.yaw || 0) * dt * sensitivity,
-      -(input.roll || 0) * dt * 1.5,
-      'YXZ',
-    ));
+    rotation.setFromEuler(
+      new Euler(
+        (input.pitch || 0) * dt * sensitivity,
+        -(input.yaw || 0) * dt * sensitivity,
+        -(input.roll || 0) * dt * 1.5,
+        'YXZ',
+      ),
+    );
     this.quaternion.multiply(rotation).normalize();
     this.bank = MathUtils.damp(this.bank, -(input.yaw || 0) * 0.35, 5, dt);
     forward.set(0, 0, -1).applyQuaternion(this.quaternion);

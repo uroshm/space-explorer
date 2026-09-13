@@ -1,6 +1,6 @@
 # Space Explorer
 
-A playable 3D space exploration starter built with **Three.js**, **Vite**, and plain JavaScript. Fly the Wanderer around the Solar System, explore four navigation sites, and enjoy the view.
+A playable 3D space exploration starter built with **Three.js**, **Vite**, and plain JavaScript. Fly the Wanderer around the Solar System, explore five navigation sites, and enjoy the view.
 
 ## Run locally
 
@@ -17,25 +17,28 @@ Open the local URL printed by Vite, then click **Begin exploration** or press **
 npm run build       # Production files in dist/
 npm run preview     # Serve the production build locally
 npm test            # Flight simulation tests
+npm run format      # Format project files with Prettier
 npx playwright install chromium
 npm run test:browser
 ```
 
+Run `npm run format` before committing or pushing to keep code and project files consistently formatted.
+
 ## Flight controls
 
-| Control | Action |
-| --- | --- |
-| W / S | Increase / decrease throttle |
-| ↑ / ↓ | Pitch up / down |
-| A / D or ← / → | Turn left / right |
-| Q / E | Roll left / right |
-| Shift | Boost; consumes charge that automatically regenerates |
-| Space | Brake and reduce throttle to zero |
-| T | Select the next destination |
-| C | Switch between chase and forward cameras |
-| Escape | Pause / release mouse steering |
-| Enter | Begin exploration / resume |
-| M | Toggle mouse steering |
+| Control        | Action                                                |
+| -------------- | ----------------------------------------------------- |
+| W / S          | Increase / decrease throttle                          |
+| ↑ / ↓          | Pitch up / down                                       |
+| A / D or ← / → | Turn left / right                                     |
+| Q / E          | Roll left / right                                     |
+| Shift          | Boost; consumes charge that automatically regenerates |
+| Space          | Brake and reduce throttle to zero                     |
+| T              | Select the next destination                           |
+| C              | Switch between chase and forward cameras              |
+| Escape         | Pause / release mouse steering                        |
+| Enter          | Begin exploration / resume                            |
+| M              | Toggle mouse steering                                 |
 
 Mouse steering works like a virtual joystick: move away from the center to turn, then move back to fly straight. Keyboard steering is always available; steering keys clear any mouse turn. Touch devices have on-screen steering, throttle, boost, and brake buttons.
 
@@ -57,7 +60,6 @@ Change `src/data/bodies.json` to customize planets and moons, the `destinations`
 This starter uses arcade flight and simple spherical obstacle collisions. Planetary rings are decorative. Discoveries last for the current session, and the forward camera is a ship-free view rather than a modeled cockpit. There is no backend or multiplayer.
 
 The body catalog includes Earth, Mars, Earth’s Moon, Jupiter (with a large red spot), Saturn, Uranus, Neptune, Ceres, Pluto, Haumea, Makemake, and Eris. Sizes, positions, and appearances are stylized for gameplay rather than an accurate Solar System simulation.
-
 
 ## Editing celestial bodies
 

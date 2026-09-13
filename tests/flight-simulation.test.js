@@ -33,7 +33,8 @@ test('collisions place the ship outside the obstacle and cut thrust', () => {
 });
 
 test('movement is consistent across frame rates and long frames are clamped', () => {
-  const low = new Flight(), high = new Flight();
+  const low = new Flight(),
+    high = new Flight();
   simulate(low, 5, {}, 30);
   simulate(high, 5, {}, 120);
   assert.ok(low.position.distanceTo(high.position) < 1);
