@@ -12,7 +12,11 @@
     "fact": "Venus is the hottest planet, even though Mercury is closer to the Sun.",
     "quiz": {
       "question": "What makes Venus the hottest planet?",
-      "choices": ["Its thick atmosphere traps heat", "It is closest to the Sun", "It has a giant fire inside"],
+      "choices": [
+        "Its thick atmosphere traps heat",
+        "It is closest to the Sun",
+        "It has a giant fire inside"
+      ],
       "answer": "Its thick atmosphere traps heat",
       "explanation": "Venus's thick air keeps heat from escaping."
     }
@@ -30,7 +34,11 @@
     "fact": "Mars looks red because iron in its rocks and dust has rusted.",
     "quiz": {
       "question": "Why does Mars look red?",
-      "choices": ["Its dusty rocks contain rusty iron", "It is covered in red flowers", "It glows like a star"],
+      "choices": [
+        "Its dusty rocks contain rusty iron",
+        "It is covered in red flowers",
+        "It glows like a star"
+      ],
       "answer": "Its dusty rocks contain rusty iron",
       "explanation": "Rusty iron in Martian rocks and dust gives the planet its reddish look."
     }

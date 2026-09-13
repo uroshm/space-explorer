@@ -143,8 +143,7 @@ test('epic approach sound waits ten seconds before playing again', async ({ page
       audio.resume();
       sounds.length = 0;
 
-      const track = (name) =>
-        [...document.querySelectorAll(`audio[data-sound="${name}"]`)].at(-1);
+      const track = (name) => [...document.querySelectorAll(`audio[data-sound="${name}"]`)].at(-1);
       const music = track('bg-music');
       const engine = track('engine');
       const epic = track('epic');
@@ -198,7 +197,9 @@ test('controls open before launch and touch controls work at a mobile viewport',
   await expect(page.locator('.intro-note')).toHaveCount(0);
   const launchBox = await page.locator('#launch-button').boundingBox();
   const pilotBox = await page.locator('#intro-pilot-button').boundingBox();
-  expect(Math.abs(launchBox.x + launchBox.width / 2 - (pilotBox.x + pilotBox.width / 2))).toBeLessThan(1);
+  expect(
+    Math.abs(launchBox.x + launchBox.width / 2 - (pilotBox.x + pilotBox.width / 2)),
+  ).toBeLessThan(1);
   expect(pilotBox.width).toBeCloseTo(launchBox.width, 0);
   await page.getByRole('button', { name: 'Open flight controls' }).click();
   await expect(page.getByRole('heading', { name: 'Make yourself at home.' })).toBeVisible();

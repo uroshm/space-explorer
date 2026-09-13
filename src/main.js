@@ -230,9 +230,11 @@ function startGame() {
         button.textContent = choice;
         button.addEventListener('click', () => {
           const correct = choice === quiz.answer;
-          $('learning-choices').querySelectorAll('.learning-choice').forEach((option) => {
-            option.classList.remove('is-correct', 'is-incorrect');
-          });
+          $('learning-choices')
+            .querySelectorAll('.learning-choice')
+            .forEach((option) => {
+              option.classList.remove('is-correct', 'is-incorrect');
+            });
           button.classList.add(correct ? 'is-correct' : 'is-incorrect');
           $('learning-feedback').textContent = correct
             ? `That’s right!${quiz.explanation ? ` ${quiz.explanation}` : ''}`
@@ -754,10 +756,7 @@ function startGame() {
       activeApproachId,
     );
     if (approaching) {
-      if (
-        activeApproachId !== approaching.planet.id &&
-        approaching.planet.type !== 'star'
-      ) {
+      if (activeApproachId !== approaching.planet.id && approaching.planet.type !== 'star') {
         audio.approach();
       }
       activeApproachId = approaching.planet.id;
@@ -778,11 +777,7 @@ function startGame() {
       const touchInput = Math.abs(touchSteer.x) > 0.05 || Math.abs(touchSteer.y) > 0.05;
       if (keys.size || steeringInput || touchInput) {
         lastFlightInputAt = performance.now();
-      } else if (
-        launched &&
-        !idleReminderShown &&
-        now - lastFlightInputAt >= 8000
-      ) {
+      } else if (launched && !idleReminderShown && now - lastFlightInputAt >= 8000) {
         idleReminderShown = true;
         notify('Ready to explore? Hold W or tap THRUST to move toward the destination marker.');
       }

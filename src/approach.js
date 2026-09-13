@@ -27,10 +27,7 @@ export function findApproachingPlanet(
         ? 0
         : (dx * cameraDirection.x + dy * cameraDirection.y + dz * cameraDirection.z) / distance;
 
-    if (
-      surfaceDistance < APPROACH_TARGET_RETENTION_DISTANCE &&
-      aimDot >= aimDotThreshold
-    ) {
+    if (surfaceDistance < APPROACH_TARGET_RETENTION_DISTANCE && aimDot >= aimDotThreshold) {
       candidates.push({ planet, surfaceDistance });
     }
   }

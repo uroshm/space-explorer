@@ -158,7 +158,9 @@ button:hover {
 }
 .tracker-icon {
   color: #efffa2;
-  font: 24px/1 Arial, sans-serif;
+  font:
+    24px/1 Arial,
+    sans-serif;
   filter: drop-shadow(0 0 7px #d9ff79a6);
   flex: 0 0 auto;
 }
