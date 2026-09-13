@@ -1,0 +1,29 @@
+{
+  "Mercury": {
+    "fact": "A day from one sunrise to the next on Mercury lasts longer than its year."
+  },
+  "Moon": {
+    "fact": "The Moon is slowly moving away from Earth by a few centimeters each year."
+  },
+  "Jupiter": {
+    "fact": "Jupiter's Great Red Spot is a giant storm that has been observed for hundreds of years.",
+    "quiz": {
+      "question": "What is Jupiter's Great Red Spot?",
+      "choices": ["A giant storm", "A deep ocean", "A volcano"],
+      "answer": "A giant storm",
+      "explanation": "It is a huge storm in Jupiter's clouds."
+    }
+  },
+  "Saturn": {
+    "fact": "Saturn's rings are made mostly of water ice, with some rocky material mixed in."
+  },
+  "Asteroid Belt": {
+    "fact": "The asteroid belt lies between Mars and Jupiter. Its asteroids are spread very far apart."
+  },
+  "Kuiper Belt": {
+    "fact": "The Kuiper belt lies beyond Neptune and contains many small icy worlds."
+  },
+  "Heliopause": {
+    "fact": "The heliopause marks where the Sun's solar wind meets the space between stars."
+  }
+}

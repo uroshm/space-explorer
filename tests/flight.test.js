@@ -13,11 +13,10 @@ test('keyboard steering turns faster and stops turning on release', () => {
   assert.ok(keyboard.quaternion.angleTo(facing) < 1e-7);
 });
 
-test('throttle reaches full power quickly and brake cuts thrust', () => {
+test('throttle reaches full power quickly and decreases with reverse throttle', () => {
   const flight = new Flight();
   for (let i = 0; i < 22; i++) flight.update(0.05, { thrust: 1 });
   assert.equal(flight.throttle, 1);
-  for (let i = 0; i < 14; i++) flight.update(0.05, { brake: true, boost: true });
+  for (let i = 0; i < 32; i++) flight.update(0.05, { thrust: -1 });
   assert.equal(flight.throttle, 0);
-  assert.equal(flight.boosting, false);
 });

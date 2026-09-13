@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import bodyCatalog from './data/bodies.json';
+import bodyCatalog from './data/bodies.json' with { type: 'json' };
 import { resolveBodies } from './bodies.js';
+import { COMET_LIFETIME, createCometSchedule } from './world-timing.js';
 
 function randomGenerator(seed) {
   return () => {
@@ -22,7 +23,11 @@ const noiseGLSL = `
 `;
 
 export function createWorld(scene) {
-  const bodies = resolveBodies(bodyCatalog);
+  const layoutScale = 1.8;
+  const bodies = resolveBodies(bodyCatalog).map((body) => ({
+    ...body,
+    position: body.position.map((coordinate) => coordinate * layoutScale),
+  }));
   const random = randomGenerator(1207);
   scene.background = new THREE.Color(0x000000);
   scene.add(new THREE.AmbientLight(0xa6bdcc, 1.3));
@@ -34,6 +39,7 @@ export function createWorld(scene) {
   scene.add(fill);
 
   const sky = new THREE.Group();
+  sky.name = 'Starfield';
   const nebula = new THREE.Mesh(
     new THREE.SphereGeometry(90000, 32, 16),
     new THREE.ShaderMaterial({
@@ -52,33 +58,63 @@ export function createWorld(scene) {
     }),
   );
   sky.add(nebula);
-  const points = [],
-    colors = [];
+  const comet = new THREE.Group();
+  comet.name = 'Distant comet';
+  comet.visible = false;
+  const cometMaterial = new THREE.MeshBasicMaterial({
+    color: 0xe8f8ff,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const cometTrail = new THREE.Mesh(new THREE.ConeGeometry(4, 220, 7), cometMaterial);
+  cometTrail.rotation.z = -Math.PI / 2;
+  cometTrail.position.x = -108;
+  comet.add(cometTrail);
+  comet.add(new THREE.Mesh(new THREE.SphereGeometry(7, 8, 6), cometMaterial));
+  sky.add(comet);
+  const cometSchedule = createCometSchedule(random);
+  let cometStartedAt = 0;
+  let cometActive = false;
+  const cometStart = new THREE.Vector3();
+  const cometVelocity = new THREE.Vector3();
+  const cometDirection = new THREE.Vector3();
+  const cometRotation = new THREE.Quaternion();
+  const starLayers = [
+    { size: 1.7, points: [], colors: [] },
+    { size: 2.2, points: [], colors: [] },
+    { size: 2.8, points: [], colors: [] },
+  ];
   const starColor = new THREE.Color();
   for (let i = 0; i < 6500; i++) {
     const theta = random() * Math.PI * 2;
     const y = random() * 2 - 1;
     const r = Math.sqrt(1 - y * y);
-    points.push(Math.cos(theta) * r * 80000, y * 80000, Math.sin(theta) * r * 80000);
+    const sizeRoll = random();
+    const layer = starLayers[sizeRoll < 0.82 ? 0 : sizeRoll < 0.98 ? 1 : 2];
+    layer.points.push(Math.cos(theta) * r * 80000, y * 80000, Math.sin(theta) * r * 80000);
     starColor.setHSL(0.08 + random() * 0.56, 0.12 + random() * 0.2, 0.3 + random() * 0.55);
-    colors.push(starColor.r, starColor.g, starColor.b);
+    layer.colors.push(starColor.r, starColor.g, starColor.b);
   }
-  const stars = new THREE.BufferGeometry();
-  stars.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-  stars.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  sky.add(
-    new THREE.Points(
-      stars,
-      new THREE.PointsMaterial({
-        size: 1.7,
-        sizeAttenuation: false,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false,
-      }),
-    ),
-  );
+  for (const layer of starLayers) {
+    const stars = new THREE.BufferGeometry();
+    stars.setAttribute('position', new THREE.Float32BufferAttribute(layer.points, 3));
+    stars.setAttribute('color', new THREE.Float32BufferAttribute(layer.colors, 3));
+    sky.add(
+      new THREE.Points(
+        stars,
+        new THREE.PointsMaterial({
+          size: layer.size,
+          sizeAttenuation: false,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+        }),
+      ),
+    );
+  }
   scene.add(sky);
 
   const colliders = [];
@@ -94,6 +130,7 @@ export function createWorld(scene) {
       uniforms: {
         colorA: { value: new THREE.Color(colorA) },
         colorB: { value: new THREE.Color(colorB) },
+        bodyRadius: { value: radius },
         gas: { value: gas ? 1 : 0 },
         hasSpot: { value: spot ? 1 : 0 },
         spotColor: { value: new THREE.Color(spot?.color ?? '#ffffff') },
@@ -104,7 +141,7 @@ export function createWorld(scene) {
       },
       vertexShader: `varying vec3 vP; varying vec3 vN; varying vec3 vW; void main(){vP=position;vN=normalize(mat3(modelMatrix)*normal);vW=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);}`,
       fragmentShader: `${noiseGLSL}
-        uniform vec3 colorA; uniform vec3 colorB; uniform float gas;
+        uniform vec3 colorA; uniform vec3 colorB; uniform float bodyRadius; uniform float gas;
         uniform float hasSpot; uniform vec3 spotColor; uniform vec2 spotCenter; uniform vec2 spotSize;
         varying vec3 vP; varying vec3 vN; varying vec3 vW;
         void main(){
@@ -113,6 +150,10 @@ export function createWorld(scene) {
           if(gas>.5) land=.5+.5*sin(p.y*55.+fbm(p*8.)*13.);
           vec3 color=mix(colorA,colorB,land);
           color*=.8+fbm(p*42.)*.4;
+          float cameraDistance=length(cameraPosition-vW)/bodyRadius;
+          float closeDetail=1.-smoothstep(3.,18.,cameraDistance);
+          float fineTexture=fbm(p*170.+vec3(6.3,2.7,9.1));
+          color*=mix(1.,.82+fineTexture*.36,closeDetail);
           float clouds=smoothstep(.60,.76,fbm(p*7.+vec3(9.)));
           color=mix(color,vec3(.73,.83,.79),clouds*.55*(1.-gas));
           if(hasSpot>.5) {
@@ -171,6 +212,36 @@ export function createWorld(scene) {
     scene.add(ring);
   }
 
+  const sunPosition = new THREE.Vector3(0, 6000 * layoutScale, -45000 * layoutScale);
+  const sunRadius = 7000;
+  const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(sunRadius, 64, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffd783 }),
+  );
+  sunMesh.name = 'Sun';
+  sunMesh.position.copy(sunPosition);
+  scene.add(sunMesh);
+  const sunGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(sunRadius * 1.22, 32, 20),
+    new THREE.MeshBasicMaterial({
+      color: 0xf6a949,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+    }),
+  );
+  sunGlow.position.copy(sunPosition);
+  scene.add(sunGlow);
+  colliders.push({ position: sunMesh.position, radius: sunRadius });
+  planets.unshift({
+    mesh: sunMesh,
+    id: 'sun',
+    name: 'Sun',
+    type: 'star',
+    radius: sunRadius,
+    position: sunMesh.position,
+  });
+
   const asteroidGeometry = new THREE.IcosahedronGeometry(1, 1);
   const vertices = asteroidGeometry.attributes.position;
   for (let i = 0; i < vertices.count; i++) {
@@ -181,7 +252,7 @@ export function createWorld(scene) {
     vertices.setXYZ(i, x * scale, y * scale, z * scale);
   }
   asteroidGeometry.computeVertexNormals();
-  const asteroidCount = 100;
+  const asteroidCount = 25;
   const asteroids = new THREE.InstancedMesh(
     asteroidGeometry,
     new THREE.MeshStandardMaterial({ color: 0x746d63, flatShading: true, roughness: 1 }),
@@ -206,40 +277,142 @@ export function createWorld(scene) {
   }
   scene.add(asteroids);
 
-  const nearBody = (id, offset) => {
+  const bodyApproach = (id) => {
     const body = bodies.find((body) => body.id === id);
-    return new THREE.Vector3(...body.position).add(new THREE.Vector3(...offset));
+    const center = new THREE.Vector3(...body.position);
+    return center.addScaledVector(center.clone().normalize(), body.diameter / 2 + 80);
   };
+  const solarStops = [
+    {
+      name: 'Mercury flyby',
+      id: 'mercury',
+      type: 'Planetary observation',
+      info: 'The closest world to the Sun: a small, cratered planet of iron and stone.',
+    },
+    {
+      name: 'Venus flyby',
+      id: 'venus',
+      type: 'Planetary observation',
+      info: 'A bright, cloud-wrapped world with a crushing atmosphere.',
+    },
+    {
+      name: 'Earth orbit',
+      id: 'earth',
+      type: 'Planetary observation',
+      info: 'The blue home world, seen from the quiet of space.',
+    },
+    {
+      name: 'Moon outpost',
+      id: 'moon',
+      type: 'Lunar research station',
+      info: 'An automated observatory listening to the quiet side of the Moon.',
+    },
+    {
+      name: 'Mars overlook',
+      id: 'mars',
+      type: 'Planetary observation',
+      info: 'A red desert world marked by ancient rivers and towering volcanoes.',
+    },
+    {
+      name: 'Ceres waypoint',
+      id: 'ceres',
+      type: 'Dwarf planet observation',
+      info: 'The largest body in the asteroid belt and a dwarf planet of its own.',
+    },
+    {
+      name: 'Jupiter approach',
+      id: 'jupiter',
+      type: 'Planetary observation',
+      info: 'A banded gas giant with a centuries-old storm.',
+    },
+    {
+      name: 'Saturn overlook',
+      id: 'saturn',
+      type: 'Planetary observation',
+      info: 'A gas giant surrounded by rings of ice and dust.',
+    },
+    {
+      name: 'Uranus flyby',
+      id: 'uranus',
+      type: 'Planetary observation',
+      info: 'A close pass through the pale blue atmosphere of Uranus.',
+    },
+    {
+      name: 'Neptune flyby',
+      id: 'neptune',
+      type: 'Planetary observation',
+      info: 'A distant blue giant swept by supersonic winds.',
+    },
+    {
+      name: 'Pluto flyby',
+      id: 'pluto',
+      type: 'Dwarf planet observation',
+      info: 'A faraway world of nitrogen ice at the edge of the Kuiper belt.',
+    },
+    {
+      name: 'Haumea flyby',
+      id: 'haumea',
+      type: 'Dwarf planet observation',
+      info: 'A rapidly spinning, elongated dwarf planet beyond Neptune.',
+    },
+    {
+      name: 'Makemake flyby',
+      id: 'makemake',
+      type: 'Dwarf planet observation',
+      info: 'A bright, frozen dwarf planet in the outer Solar System.',
+    },
+    {
+      name: 'Eris flyby',
+      id: 'eris',
+      type: 'Dwarf planet observation',
+      info: 'A distant dwarf planet nearly as large as Pluto.',
+    },
+  ];
   const destinations = [
     {
+      id: 'first-signal',
       name: 'The first signal',
       type: 'Navigation beacon',
       position: new THREE.Vector3(0, 0, -700),
       info: 'A small signal in a very big universe. Your journey has begun.',
     },
     {
-      name: 'Moon outpost',
-      type: 'Lunar research station',
-      position: nearBody('moon', [350, 280, 500]),
-      info: 'An automated observatory listening to the quiet side of the Moon.',
+      id: 'solar-flyby',
+      name: 'Solar flyby',
+      type: 'Solar observation',
+      position: sunPosition
+        .clone()
+        .addScaledVector(sunPosition.clone().normalize(), -sunRadius - 80),
+      info: 'A close pass around the star at the heart of our system.',
+    },
+    ...solarStops.map((stop) => ({ ...stop, position: bodyApproach(stop.id) })),
+    {
+      id: 'asteroid-belt',
+      name: 'Asteroid belt survey',
+      type: 'Deep-space observation',
+      position: new THREE.Vector3(0, 0, -22000),
+      info: 'A broad region between Mars and Jupiter filled with rocky and metallic bodies.',
     },
     {
-      name: 'Saturn overlook',
-      type: 'Planetary observation',
-      position: nearBody('saturn', [-1130, 130, 400]),
-      info: 'A gas giant surrounded by rings of ice and dust.',
+      id: 'kuiper-belt',
+      name: 'Kuiper belt survey',
+      type: 'Deep-space observation',
+      position: new THREE.Vector3(-6000, 0, -41000),
+      info: 'A distant region beyond Neptune containing many small icy worlds.',
     },
     {
+      id: 'heliopause',
+      name: 'Heliopause station',
+      type: 'Deep-space observation',
+      position: new THREE.Vector3(12000, 6000, 56000),
+      info: 'The boundary where the Sun’s solar wind gives way to interstellar space.',
+    },
+    {
+      id: 'outer-reaches',
       name: 'The outer reaches',
       type: 'Deep space relay',
       position: new THREE.Vector3(-4400, 1000, -9200),
       info: 'The last relay before open space. There is always a little further to go.',
-    },
-    {
-      name: 'Uranus flyby',
-      type: 'Planetary observation',
-      position: nearBody('uranus', [0, 0, 900]),
-      info: 'A close pass through the pale blue atmosphere of Uranus.',
     },
   ];
   for (const destination of destinations) {
@@ -257,6 +430,7 @@ export function createWorld(scene) {
     group.add(outer);
     destination.mesh = group;
     destination.discovered = false;
+    destination.visitActive = false;
     scene.add(group);
   }
 
@@ -280,8 +454,35 @@ export function createWorld(scene) {
     colliders,
     destinations,
     planets,
-    update(dt, time, position) {
+    update(dt, time, position, orientation = new THREE.Quaternion()) {
       sky.position.copy(position);
+      if (!cometActive && cometSchedule.isDue(time)) {
+        cometRotation.copy(orientation);
+        cometStart
+          .set((random() - 0.5) * 1800, (random() - 0.5) * 1100, -7000)
+          .applyQuaternion(cometRotation);
+        cometVelocity
+          .set(1150 + random() * 650, 350 + random() * 650, 0)
+          .applyQuaternion(cometRotation);
+        cometDirection.copy(cometVelocity).normalize();
+        comet.position.copy(cometStart);
+        comet.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), cometDirection);
+        comet.visible = true;
+        cometActive = true;
+        cometStartedAt = time;
+      }
+      if (cometActive) {
+        const progress = (time - cometStartedAt) / COMET_LIFETIME;
+        if (progress >= 1) {
+          comet.visible = false;
+          cometMaterial.opacity = 0;
+          cometActive = false;
+          cometSchedule.reschedule(time);
+        } else {
+          comet.position.copy(cometStart).addScaledVector(cometVelocity, progress);
+          cometMaterial.opacity = Math.sin(progress * Math.PI) * 0.85;
+        }
+      }
       planets.forEach(({ mesh }) => {
         mesh.rotation.y += dt * 0.008;
       });

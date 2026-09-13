@@ -7,14 +7,37 @@ const catalog = JSON.parse(readFileSync(new URL('../src/data/bodies.json', impor
 
 test('shipped catalog preserves body positions and diameters', () => {
   const bodies = resolveBodies(catalog);
-  assert.equal(bodies.length, 12);
-  assert.deepEqual(bodies[0].position, [3300, 840, -6200]);
-  assert.equal(bodies[0].diameter, 2000);
+  assert.equal(bodies.length, 14);
+  assert.deepEqual(
+    catalog.map((body) => body.id),
+    [
+      'mercury',
+      'venus',
+      'earth',
+      'moon',
+      'mars',
+      'ceres',
+      'jupiter',
+      'saturn',
+      'uranus',
+      'neptune',
+      'pluto',
+      'haumea',
+      'makemake',
+      'eris',
+    ],
+  );
+  assert.deepEqual(bodies[0].position, [2100, -3200, -2800]);
+  assert.equal(bodies[0].diameter, 380);
 });
 
 test('moons resolve parent offsets regardless of catalog order without mutating input', () => {
-  const moon = { ...catalog[2], parent: 'saturn', position: [2300, 300, 0] };
-  const [resolved] = resolveBodies([moon, catalog[0]]);
+  const moon = {
+    ...catalog.find((body) => body.id === 'moon'),
+    parent: 'saturn',
+    position: [2300, 300, 0],
+  };
+  const [resolved] = resolveBodies([moon, catalog.find((body) => body.id === 'saturn')]);
   assert.deepEqual(resolved.position, [5600, 1140, -6200]);
   assert.deepEqual(moon.position, [2300, 300, 0]);
 });
@@ -22,38 +45,43 @@ test('moons resolve parent offsets regardless of catalog order without mutating 
 test('invalid catalogs fail with useful errors', () => {
   assert.throws(() => resolveBodies([catalog[0], catalog[0]]), /unique/);
   assert.throws(() => resolveBodies([{ ...catalog[0], diameter: -1 }]), /diameter/);
-  assert.throws(() => resolveBodies([{ ...catalog[2], parent: 'missing' }]), /unknown parent/);
-  assert.throws(() => resolveBodies([{ ...catalog[2], parent: 'moon' }]), /circular/);
+  const moon = catalog.find((body) => body.id === 'moon');
+  assert.throws(() => resolveBodies([{ ...moon, parent: 'missing' }]), /unknown parent/);
+  assert.throws(() => resolveBodies([{ ...moon, parent: 'moon' }]), /circular/);
   assert.throws(
     () => resolveBodies([{ ...catalog[0], features: { spot: { color: 'red' } } }]),
     /spot needs/,
   );
 });
 
-test('requested worlds are present with Earth’s moon and Jupiter’s spot', () => {
+test('ordered catalog includes Mercury through the outer dwarf planets', () => {
   const bodies = resolveBodies(catalog);
-  for (const id of [
-    'earth',
-    'mars',
-    'moon',
-    'neptune',
-    'saturn',
-    'ceres',
-    'pluto',
-    'haumea',
-    'makemake',
-    'eris',
-    'jupiter',
-    'uranus',
-  ]) {
-    assert.ok(
-      bodies.some((body) => body.id === id),
-      `Missing ${id}`,
-    );
-  }
+  assert.deepEqual(
+    bodies.map((body) => body.id),
+    [
+      'mercury',
+      'venus',
+      'earth',
+      'moon',
+      'mars',
+      'ceres',
+      'jupiter',
+      'saturn',
+      'uranus',
+      'neptune',
+      'pluto',
+      'haumea',
+      'makemake',
+      'eris',
+    ],
+  );
   assert.equal(catalog.find((body) => body.id === 'moon').parent, 'earth');
   assert.deepEqual(bodies.find((body) => body.id === 'moon').position, [-4050, -1380, -6000]);
   assert.equal(bodies.find((body) => body.id === 'jupiter').features.spot.color, '#bd3926');
+  assert.ok(
+    bodies.find((body) => body.id === 'jupiter').diameter >
+      bodies.find((body) => body.id === 'earth').diameter * 5,
+  );
   for (const body of bodies) {
     for (const other of bodies) {
       if (body.id === other.id) continue;
@@ -72,7 +100,10 @@ test('storm features and Saturn rings are configured', () => {
   const bodies = resolveBodies(catalog);
   const saturn = bodies.find((body) => body.id === 'saturn');
   const neptune = bodies.find((body) => body.id === 'neptune');
-  assert.equal(saturn.features.spot.color, '#774323');
   assert.ok(saturn.features.rings.innerRadius > saturn.diameter / 2);
-  assert.equal(neptune.features.spot.color, '#092a85');
+  assert.equal(saturn.features.spot, undefined);
+  assert.equal(neptune.features.spot, undefined);
+  for (const body of bodies) {
+    assert.equal(body.features.spot !== undefined, body.id === 'jupiter');
+  }
 });

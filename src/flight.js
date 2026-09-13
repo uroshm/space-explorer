@@ -28,17 +28,12 @@ export class Flight {
   update(dt, input) {
     dt = Math.min(Math.max(dt, 0), 0.05);
     this.throttle = MathUtils.clamp(this.throttle + (input.thrust || 0) * dt * 0.65, 0, 1);
-    if (input.brake) this.throttle = Math.max(0, this.throttle - dt * 1.5);
     if (this.energy >= 30) this.boostLocked = false;
-    this.boosting = Boolean(input.boost && !input.brake && !this.boostLocked && this.energy > 0);
+    this.boosting = Boolean(input.boost && !this.boostLocked && this.energy > 0);
     this.energy = MathUtils.clamp(this.energy + (this.boosting ? -24 : 14) * dt, 0, 100);
     if (this.energy === 0) this.boostLocked = true;
-    const targetSpeed = input.brake
-      ? 0
-      : this.boosting
-        ? BOOST_SPEED
-        : this.throttle * CRUISE_SPEED;
-    this.speed = MathUtils.damp(this.speed, targetSpeed, input.brake ? 3.5 : 1.5, dt);
+    const targetSpeed = this.boosting ? BOOST_SPEED : this.throttle * CRUISE_SPEED;
+    this.speed = MathUtils.damp(this.speed, targetSpeed, 1.5, dt);
     const sensitivity = (this.boosting ? 0.7 : 1.15) * (input.keyboardSteering ? 1.4 : 1);
     rotation.setFromEuler(
       new Euler(

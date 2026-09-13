@@ -1,32 +1,74 @@
 [
   {
-    "name": "Saturn",
-    "diameter": 2000,
-    "position": [3300, 840, -6200],
-    "color": "#c7aa72",
-    "secondaryColor": "#ead6a1",
-    "surface": "gas",
-    "features": {
-      "rings": {
-        "innerRadius": 1250,
-        "outerRadius": 1950,
-        "color": "#455c59",
-        "outerColor": "#ada682",
-        "rotation": [1.15, 0.18, -0.35]
-      },
-      "spot": {
-        "color": "#774323",
-        "latitude": 20,
-        "longitude": 115,
-        "size": [28, 17]
-      }
-    },
-    "id": "saturn",
-    "type": "planet"
+    "id": "mercury",
+    "name": "Mercury",
+    "type": "planet",
+    "diameter": 380,
+    "position": [2100, -3200, -2800],
+    "color": "#8c8177",
+    "secondaryColor": "#c5b7a7",
+    "surface": "rocky",
+    "features": {}
+  },
+  {
+    "id": "venus",
+    "name": "Venus",
+    "type": "planet",
+    "diameter": 950,
+    "position": [-2700, 3200, 1800],
+    "color": "#b67a42",
+    "secondaryColor": "#f0c47d",
+    "surface": "rocky",
+    "features": {}
+  },
+  {
+    "id": "earth",
+    "name": "Earth",
+    "type": "planet",
+    "diameter": 1000,
+    "position": [-5200, -1600, -6000],
+    "color": "#164e9e",
+    "secondaryColor": "#579455",
+    "surface": "rocky",
+    "features": {}
+  },
+  {
+    "name": "Moon",
+    "diameter": 280,
+    "position": [1150, 220, 0],
+    "color": "#777777",
+    "secondaryColor": "#bcbcbc",
+    "surface": "rocky",
+    "features": {},
+    "id": "moon",
+    "type": "moon",
+    "parent": "earth"
+  },
+  {
+    "id": "mars",
+    "name": "Mars",
+    "type": "planet",
+    "diameter": 540,
+    "position": [5600, 600, -13000],
+    "color": "#a44829",
+    "secondaryColor": "#db8655",
+    "surface": "rocky",
+    "features": {}
+  },
+  {
+    "id": "ceres",
+    "name": "Ceres",
+    "type": "dwarf-planet",
+    "diameter": 140,
+    "position": [600, -1800, -9600],
+    "color": "#66645d",
+    "secondaryColor": "#a5a094",
+    "surface": "rocky",
+    "features": {}
   },
   {
     "name": "Jupiter",
-    "diameter": 1460,
+    "diameter": 5200,
     "position": [-5600, 1500, -12400],
     "color": "#bb875e",
     "secondaryColor": "#efdbbb",
@@ -43,73 +85,51 @@
     "type": "planet"
   },
   {
-    "name": "Moon",
-    "diameter": 520,
-    "position": [1150, 220, 0],
-    "color": "#777777",
-    "secondaryColor": "#bcbcbc",
-    "surface": "rocky",
-    "features": {},
-    "id": "moon",
-    "type": "moon",
-    "parent": "earth"
+    "name": "Saturn",
+    "diameter": 4400,
+    "position": [3300, 840, -6200],
+    "color": "#c7aa72",
+    "secondaryColor": "#ead6a1",
+    "surface": "gas",
+    "features": {
+      "rings": {
+        "innerRadius": 2500,
+        "outerRadius": 3600,
+        "color": "#455c59",
+        "outerColor": "#ada682",
+        "rotation": [1.15, 0.18, -0.35]
+      }
+    },
+    "id": "saturn",
+    "type": "planet"
+  },
+  {
+    "id": "uranus",
+    "name": "Uranus",
+    "type": "planet",
+    "diameter": 2900,
+    "position": [0, 2200, -10500],
+    "color": "#79c6d0",
+    "secondaryColor": "#b4dfe2",
+    "surface": "gas",
+    "features": {}
   },
   {
     "name": "Neptune",
-    "diameter": 1300,
+    "diameter": 2800,
     "position": [7000, -2400, 6800],
     "color": "#214bc4",
     "secondaryColor": "#6395e0",
     "surface": "gas",
-    "features": {
-      "spot": {
-        "color": "#092a85",
-        "latitude": -20,
-        "longitude": -115,
-        "size": [22, 12]
-      }
-    },
+    "features": {},
     "id": "neptune",
     "type": "planet"
-  },
-  {
-    "id": "earth",
-    "name": "Earth",
-    "type": "planet",
-    "diameter": 1000,
-    "position": [-5200, -1600, -6000],
-    "color": "#164e9e",
-    "secondaryColor": "#579455",
-    "surface": "rocky",
-    "features": {}
-  },
-  {
-    "id": "mars",
-    "name": "Mars",
-    "type": "planet",
-    "diameter": 700,
-    "position": [5600, 600, -13000],
-    "color": "#a44829",
-    "secondaryColor": "#db8655",
-    "surface": "rocky",
-    "features": {}
-  },
-  {
-    "id": "ceres",
-    "name": "Ceres",
-    "type": "dwarf-planet",
-    "diameter": 280,
-    "position": [600, -1800, -9600],
-    "color": "#66645d",
-    "secondaryColor": "#a5a094",
-    "surface": "rocky",
-    "features": {}
   },
   {
     "id": "pluto",
     "name": "Pluto",
     "type": "dwarf-planet",
-    "diameter": 440,
+    "diameter": 260,
     "position": [-9200, 2000, -19400],
     "color": "#a58c7c",
     "secondaryColor": "#e1d1b8",
@@ -120,7 +140,7 @@
     "id": "haumea",
     "name": "Haumea",
     "type": "dwarf-planet",
-    "diameter": 360,
+    "diameter": 220,
     "position": [9600, 3400, -22000],
     "color": "#a8b6c2",
     "secondaryColor": "#e4e8ea",
@@ -131,7 +151,7 @@
     "id": "makemake",
     "name": "Makemake",
     "type": "dwarf-planet",
-    "diameter": 340,
+    "diameter": 210,
     "position": [-3600, -3800, -25400],
     "color": "#9b5239",
     "secondaryColor": "#ce9672",
@@ -142,22 +162,11 @@
     "id": "eris",
     "name": "Eris",
     "type": "dwarf-planet",
-    "diameter": 460,
+    "diameter": 260,
     "position": [3200, 1800, -30000],
     "color": "#a9b4c5",
     "secondaryColor": "#edf1f4",
     "surface": "rocky",
-    "features": {}
-  },
-  {
-    "id": "uranus",
-    "name": "Uranus",
-    "type": "planet",
-    "diameter": 1400,
-    "position": [0, 2200, -10500],
-    "color": "#79c6d0",
-    "secondaryColor": "#b4dfe2",
-    "surface": "gas",
     "features": {}
   }
 ]
