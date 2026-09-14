@@ -37,11 +37,8 @@ const noiseGLSL = `
 
 export function createWorld(scene, { lowQuality = false } = {}) {
   const qualityShaderDefine = lowQuality ? '#define LOW_QUALITY\n' : '';
-  const layoutScale = 1.72;
-  const bodies = resolveBodies(bodyCatalog).map((body) => ({
-    ...body,
-    position: body.position.map((coordinate) => coordinate * layoutScale),
-  }));
+  // Compact game-space layout, ordered outward from the Sun rather than to scale.
+  const bodies = resolveBodies(bodyCatalog);
   const random = randomGenerator(1207);
   scene.background = new THREE.Color(0x000000);
   scene.add(new THREE.AmbientLight(0xa6bdcc, 1.3));
@@ -235,7 +232,8 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     scene.add(ring);
   }
 
-  const sunPosition = new THREE.Vector3(0, 6000 * layoutScale, -45000 * layoutScale);
+  // The ship starts at the origin, facing -Z, between the Sun and Mercury.
+  const sunPosition = new THREE.Vector3(0, 0, 10000);
   const sunRadius = 7000;
   const sunMesh = new THREE.Mesh(
     new THREE.SphereGeometry(sunRadius, 64, 40),
@@ -399,6 +397,7 @@ export function createWorld(scene, { lowQuality = false } = {}) {
       position: new THREE.Vector3(0, 0, -700),
       info: 'A small signal in a very big universe. Your journey has begun.',
     },
+    ...solarStops.map((stop) => ({ ...stop, position: bodyApproach(stop.id) })),
     {
       id: 'solar-flyby',
       name: 'Solar flyby',
@@ -408,7 +407,6 @@ export function createWorld(scene, { lowQuality = false } = {}) {
         .addScaledVector(sunPosition.clone().normalize(), -sunRadius - 80),
       info: 'A close pass around the star at the heart of our system.',
     },
-    ...solarStops.map((stop) => ({ ...stop, position: bodyApproach(stop.id) })),
     {
       id: 'asteroid-belt',
       name: 'Asteroid belt survey',
@@ -439,22 +437,29 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     },
   ];
   for (const destination of destinations) {
-    const group = new THREE.Group();
-    group.position.copy(destination.position);
-    const ringMesh = new THREE.Mesh(
-      new THREE.TorusGeometry(38, 0.8, 8, 80),
-      new THREE.MeshBasicMaterial({ color: 0x9df3d6 }),
+    const isCelestialDestination = planets.some(
+      (body) => body.id === destination.id && body.type !== 'star',
     );
-    group.add(ringMesh);
-    const outer = new THREE.Mesh(
-      new THREE.TorusGeometry(43, 0.28, 6, 80, Math.PI * 1.5),
-      new THREE.MeshBasicMaterial({ color: 0x557f7b }),
-    );
-    group.add(outer);
-    destination.mesh = group;
+    if (isCelestialDestination) {
+      destination.mesh = null;
+    } else {
+      const group = new THREE.Group();
+      group.position.copy(destination.position);
+      const ringMesh = new THREE.Mesh(
+        new THREE.TorusGeometry(38, 0.8, 8, 80),
+        new THREE.MeshBasicMaterial({ color: 0x9df3d6 }),
+      );
+      group.add(ringMesh);
+      const outer = new THREE.Mesh(
+        new THREE.TorusGeometry(43, 0.28, 6, 80, Math.PI * 1.5),
+        new THREE.MeshBasicMaterial({ color: 0x557f7b }),
+      );
+      group.add(outer);
+      destination.mesh = group;
+      scene.add(group);
+    }
     destination.discovered = false;
     destination.visitActive = false;
-    scene.add(group);
   }
 
   const dustGeometry = new THREE.BufferGeometry();
@@ -510,6 +515,7 @@ export function createWorld(scene, { lowQuality = false } = {}) {
         mesh.rotation.y += dt * 0.008;
       });
       for (const d of destinations) {
+        if (!d.mesh) continue;
         d.mesh.children[1].rotation.z = time * 0.15;
         d.mesh.children[0].material.color.setHex(d.discovered ? 0x4f7370 : 0x9df3d6);
       }

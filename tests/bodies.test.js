@@ -27,7 +27,7 @@ test('shipped catalog preserves body positions and diameters', () => {
       'eris',
     ],
   );
-  assert.deepEqual(bodies[0].position, [2100, -3200, -2800]);
+  assert.deepEqual(bodies[0].position, [0, 0, -2600]);
   assert.equal(bodies[0].diameter, 380);
 });
 
@@ -38,7 +38,7 @@ test('moons resolve parent offsets regardless of catalog order without mutating 
     position: [2300, 300, 0],
   };
   const [resolved] = resolveBodies([moon, catalog.find((body) => body.id === 'saturn')]);
-  assert.deepEqual(resolved.position, [5600, 1140, -6200]);
+  assert.deepEqual(resolved.position, [-900, -150, -57500]);
   assert.deepEqual(moon.position, [2300, 300, 0]);
 });
 
@@ -76,7 +76,7 @@ test('ordered catalog includes Mercury through the outer dwarf planets', () => {
     ],
   );
   assert.equal(catalog.find((body) => body.id === 'moon').parent, 'earth');
-  assert.deepEqual(bodies.find((body) => body.id === 'moon').position, [-4050, -1380, -6000]);
+  assert.deepEqual(bodies.find((body) => body.id === 'moon').position, [-850, -30, -17000]);
   assert.equal(bodies.find((body) => body.id === 'jupiter').features.spot.color, '#bd3926');
   assert.ok(
     bodies.find((body) => body.id === 'jupiter').diameter >

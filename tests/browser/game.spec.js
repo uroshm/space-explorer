@@ -54,7 +54,7 @@ test('launch, fly, discover a beacon, pause, and restart without rendering error
     )
     .toBe(true);
   await page.keyboard.up('Shift');
-  await expect(page.locator('#mission-title')).toHaveText('Solar flyby');
+  await expect(page.locator('#mission-title')).toHaveText('Mercury flyby');
   await page.keyboard.down('KeyS');
   await expect
     .poll(async () => Number((await page.locator('#thrust-value').textContent()).replace('%', '')))
@@ -74,7 +74,7 @@ test('launch, fly, discover a beacon, pause, and restart without rendering error
   await expect(page.locator('#fuel-cell-pips i.collected')).toHaveCount(0);
   await expect(page.locator('#mission-title')).toHaveText('The first signal');
   await page.keyboard.press('KeyT');
-  await expect(page.locator('#mission-title')).toHaveText('Solar flyby');
+  await expect(page.locator('#mission-title')).toHaveText('Mercury flyby');
   await expect(page.locator('#log-button')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -152,6 +152,19 @@ test('uses lighter WebGL settings on phones', async ({ browser }) => {
   expect(settings).toEqual({ pixelRatio: 1, antialias: false });
   expect(errors).toEqual([]);
   await context.close();
+});
+
+test('Escape dismisses an open learning card without pausing flight', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin exploration' }).click();
+  await page.locator('#learning-card').evaluate((card) => {
+    card.hidden = false;
+  });
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#learning-card')).toBeHidden();
+  await expect(page.locator('#game')).toHaveAttribute('data-state', 'flying');
+  await expect(page.locator('#menu-dialog')).not.toBeVisible();
 });
 
 test('epic approach sound waits ten seconds before playing again', async ({ page }) => {

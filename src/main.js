@@ -188,7 +188,9 @@ function startGame() {
   }
 
   function dismissLearningCard() {
-    $('learning-card').hidden = true;
+    const card = $('learning-card');
+    if (card.contains(document.activeElement)) document.activeElement.blur();
+    card.hidden = true;
     if (pendingPilotUnlock) {
       notify(pendingPilotUnlock);
       pendingPilotUnlock = '';
@@ -485,6 +487,11 @@ function startGame() {
   ]);
   window.addEventListener('keydown', (event) => {
     if (event.code === 'Escape') {
+      if (!$('learning-card').hidden) {
+        event.preventDefault();
+        dismissLearningCard();
+        return;
+      }
       if (!dialog.open && launched) openMenu('pause');
       return;
     }
