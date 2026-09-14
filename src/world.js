@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import bodyCatalog from './data/bodies.json' with { type: 'json' };
 import { resolveBodies } from './bodies.js';
 import { COMET_LIFETIME, createCometSchedule } from './world-timing.js';
+import { createMobileBodyGeometry } from './mobile-surface.js';
 
 function randomGenerator(seed) {
   return () => {
@@ -22,11 +23,7 @@ const noiseGLSL = `
   float fbm(vec3 p) {
     float v = 0.;
     float a = .5;
-#ifdef LOW_QUALITY
-    for (int i = 0; i < 3; i++) {
-#else
     for (int i = 0; i < 5; i++) {
-#endif
       v += a * noise(p);
       p = p * 2.03 + vec3(2.1, 4.3, 1.2);
       a *= .5;
@@ -36,7 +33,6 @@ const noiseGLSL = `
 `;
 
 export function createWorld(scene, { lowQuality = false } = {}) {
-  const qualityShaderDefine = lowQuality ? '#define LOW_QUALITY\n' : '';
   // Compact game-space layout, ordered outward from the Sun rather than to scale.
   const bodies = resolveBodies(bodyCatalog);
   const random = randomGenerator(1207);
@@ -51,34 +47,26 @@ export function createWorld(scene, { lowQuality = false } = {}) {
 
   const sky = new THREE.Group();
   sky.name = 'Starfield';
-  const nebula = new THREE.Mesh(
-    new THREE.SphereGeometry(90000, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      vertexShader: `varying vec3 vP; void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: lowQuality
-        ? `
-      varying vec3 vP;
-      void main(){
-        vec3 d=normalize(vP);
-        float band=exp(-abs(d.y+d.x*.35-.14)*5.5);
-        gl_FragColor=vec4(vec3(.003)+vec3(.012)*band,1.);
-      }`
-        : `${qualityShaderDefine}${noiseGLSL}
+  if (!lowQuality) {
+    const nebula = new THREE.Mesh(
+      new THREE.SphereGeometry(90000, 32, 16),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        vertexShader: `varying vec3 vP; void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+        fragmentShader: `${noiseGLSL}
       varying vec3 vP;
       void main(){
         vec3 d=normalize(vP); float n=fbm(d*4.+vec3(4,0,0));
         float band=exp(-abs(d.y+d.x*.35-.14)*5.5);
         vec3 color=vec3(.003)+vec3(.08)*pow(n,2.)*band;
-#ifndef LOW_QUALITY
         color+=vec3(.035)*pow(fbm(d*5.+15.),3.)*band;
-#endif
         gl_FragColor=vec4(color,1.);
       }`,
-    }),
-  );
-  sky.add(nebula);
+      }),
+    );
+    sky.add(nebula);
+  }
   const comet = new THREE.Group();
   comet.name = 'Distant comet';
   comet.visible = false;
@@ -149,60 +137,40 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     const gas = body.surface === 'gas';
     const spot = features.spot;
     const radians = THREE.MathUtils.degToRad;
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        colorA: { value: new THREE.Color(colorA) },
-        colorB: { value: new THREE.Color(colorB) },
-        bodyRadius: { value: radius },
-        gas: { value: gas ? 1 : 0 },
-        hasSpot: { value: spot ? 1 : 0 },
-        spotColor: { value: new THREE.Color(spot?.color ?? '#ffffff') },
-        spotCenter: {
-          value: new THREE.Vector2(radians(spot?.longitude ?? 0), radians(spot?.latitude ?? 0)),
-        },
-        spotSize: { value: new THREE.Vector2(...(spot?.size ?? [18, 10]).map(radians)) },
-      },
-      // Mobile interpolates broad terrain detail from vertices instead of
-      // evaluating layered noise for every covered screen pixel.
-      vertexShader: `${qualityShaderDefine}
-#ifdef LOW_QUALITY
-        ${noiseGLSL}
-        varying vec2 vTerrain;
-#endif
+    const material = lowQuality
+      ? new THREE.MeshBasicMaterial({ vertexColors: true })
+      : new THREE.ShaderMaterial({
+          uniforms: {
+            colorA: { value: new THREE.Color(colorA) },
+            colorB: { value: new THREE.Color(colorB) },
+            bodyRadius: { value: radius },
+            gas: { value: gas ? 1 : 0 },
+            hasSpot: { value: spot ? 1 : 0 },
+            spotColor: { value: new THREE.Color(spot?.color ?? '#ffffff') },
+            spotCenter: {
+              value: new THREE.Vector2(radians(spot?.longitude ?? 0), radians(spot?.latitude ?? 0)),
+            },
+            spotSize: { value: new THREE.Vector2(...(spot?.size ?? [18, 10]).map(radians)) },
+          },
+          vertexShader: `
         varying vec3 vP; varying vec3 vN; varying vec3 vW;
         void main(){
           vP=position;vN=normalize(mat3(modelMatrix)*normal);
           vW=(modelMatrix*vec4(position,1.)).xyz;
-#ifdef LOW_QUALITY
-          vec3 p=normalize(position);
-          vTerrain=vec2(fbm(p*4.5),fbm(p*8.));
-#endif
           gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);
         }`,
-      fragmentShader: `${qualityShaderDefine}
-#ifdef LOW_QUALITY
-        varying vec2 vTerrain;
-#else
+          fragmentShader: `
         ${noiseGLSL}
-#endif
         uniform vec3 colorA; uniform vec3 colorB; uniform float bodyRadius; uniform float gas;
         uniform float hasSpot; uniform vec3 spotColor; uniform vec2 spotCenter; uniform vec2 spotSize;
         varying vec3 vP; varying vec3 vN; varying vec3 vW;
         void main(){
           vec3 p=normalize(vP);
-#ifdef LOW_QUALITY
-          float terrain=vTerrain.x;
-          float bandNoise=vTerrain.y;
-#else
           float terrain=fbm(p*4.5);
           float bandNoise=gas>.5 ? fbm(p*8.) : 0.;
-#endif
           float land=smoothstep(.46,.56,terrain);
           if(gas>.5) land=.5+.5*sin(p.y*55.+bandNoise*13.);
           vec3 color=mix(colorA,colorB,land);
-#ifdef LOW_QUALITY
-          color*=.86+terrain*.28;
-#else
           color*=.8+fbm(p*42.)*.4;
           float cameraDistance=length(cameraPosition-vW)/bodyRadius;
           float closeDetail=1.-smoothstep(3.,18.,cameraDistance);
@@ -210,7 +178,6 @@ export function createWorld(scene, { lowQuality = false } = {}) {
           color*=mix(1.,.82+fineTexture*.36,closeDetail);
           float clouds=smoothstep(.60,.76,fbm(p*7.+vec3(9.)));
           color=mix(color,vec3(.73,.83,.79),clouds*.55*(1.-gas));
-#endif
           if(hasSpot>.5) {
             float longitude=atan(p.z,p.x);
             float delta=atan(sin(longitude-spotCenter.x),cos(longitude-spotCenter.x));
@@ -225,9 +192,9 @@ export function createWorld(scene, { lowQuality = false } = {}) {
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
-    });
+        });
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, lowQuality ? 32 : 80, lowQuality ? 24 : 56),
+      lowQuality ? createMobileBodyGeometry(body) : new THREE.SphereGeometry(radius, 80, 56),
       material,
     );
     mesh.name = name;

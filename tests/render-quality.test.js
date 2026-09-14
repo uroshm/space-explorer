@@ -23,9 +23,16 @@ test('sustained slow frames lower resolution, bounded fast recovery avoids oscil
   assert.equal(ratio(), 0.85);
 });
 
-test('suspend stalls and paused samples do not trigger quality drops', () => {
+test('sustained severe slowdown still reduces resolution', () => {
+  const quality = createRenderQuality({ mobile: true });
+  for (let i = 0; i < 40; i++) quality.sample(500);
+  assert.equal(quality.pixelRatio(390, 844, 3), 0.5);
+});
+
+test('resetting after suspension and an isolated stall do not trigger quality drops', () => {
   const quality = createRenderQuality({ mobile: true });
   for (let i = 0; i < 49; i++) quality.sample(30);
+  quality.reset();
   quality.sample(1000);
   assert.equal(quality.sample(30), false);
   quality.reset();

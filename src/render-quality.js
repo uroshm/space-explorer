@@ -16,13 +16,14 @@ export function createRenderQuality({ mobile = false } = {}) {
       fastWindows = 0;
     },
     // Use real frame intervals, before the flight simulation clamps its timestep.
-    // Ignore suspend/resize stalls and require sustained headroom before recovery.
+    // Bound isolated stalls, but count sustained severe slowdown too. Visibility,
+    // pause, and resize handlers reset the sampling window explicitly.
     sample(frameMs) {
-      if (!mobile || frameMs <= 0 || frameMs > 250) {
+      if (!mobile || !Number.isFinite(frameMs) || frameMs <= 0) {
         this.reset();
         return false;
       }
-      duration += frameMs;
+      duration += Math.min(frameMs, 250);
       samples++;
       if (duration < 1500) return false;
       const average = duration / samples;

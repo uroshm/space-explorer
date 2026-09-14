@@ -11,6 +11,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
     "test:browser": "playwright test",
+    "test:mobile": "playwright test --config playwright.mobile.config.js",
     "format": "prettier --write ."
   },
   "dependencies": {

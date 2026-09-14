@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Flight, BOOST_SPEED } from './flight.js';
+import { advanceFlight } from './flight-timing.js';
 import { getDestinationProximity } from './discovery.js';
 import { createShip } from './ship.js';
 import { createWorld } from './world.js';
@@ -133,7 +134,7 @@ function startGame() {
   });
   scene.add(ship);
   const flight = new Flight();
-  const audio = createAudio();
+  const audio = createAudio({ mobile: lowPowerDisplay });
   const keys = new Set();
   const mouse = { x: 0, y: 0 };
   const touchSteer = { x: 0, y: 0 };
@@ -280,6 +281,9 @@ function startGame() {
   function resume() {
     dialog.close();
     paused = false;
+    previousTime = performance.now();
+    lastRenderedAt = -Infinity;
+    renderQuality.reset();
     lastFlightInputAt = performance.now();
     audio.resume();
     game.dataset.state = 'flying';
@@ -765,14 +769,13 @@ function startGame() {
     if (now - lastRenderedAt < idleInterval - 1) return;
     lastRenderedAt = now;
     const frameMs = now - previousTime;
-    const dt = Math.min(frameMs / 1000, 0.05);
+    const dt = Math.min(frameMs / 1000, 0.5);
     previousTime = now;
     if (paused) renderQuality.reset();
     else if (renderQuality.sample(frameMs)) {
       renderer.setPixelRatio(renderQuality.pixelRatio(innerWidth, innerHeight, devicePixelRatio));
     }
     if (!paused) {
-      elapsed += dt;
       const steeringInput = Math.abs(mouse.x) > 0.05 || Math.abs(mouse.y) > 0.05;
       const touchInput = Math.abs(touchSteer.x) > 0.05 || Math.abs(touchSteer.y) > 0.05;
       if (keys.size || steeringInput || touchInput) {
@@ -782,7 +785,7 @@ function startGame() {
         notify('Ready to explore? Hold W or tap THRUST to move toward the destination marker.');
       }
       const pressed = (...codes) => (codes.some((code) => keys.has(code)) ? 1 : 0);
-      flight.update(dt, {
+      const input = {
         keyboardSteering: pressed(
           'KeyA',
           'KeyD',
@@ -804,68 +807,71 @@ function startGame() {
         ),
         roll: pressed('KeyE') - pressed('KeyQ'),
         boost: pressed('ShiftLeft', 'ShiftRight'),
-      });
-      if (flight.resolveCollisions(world.colliders) && elapsed - lastCollision > 2) {
-        lastCollision = elapsed;
-        notify('Proximity alert. Thrust cut — steer away, then press W.');
-      }
-      for (const destination of world.destinations) {
-        const { distance, range } = getDestinationProximity(
-          destination,
-          world.planets,
-          flight.position,
-        );
-        if (distance < range && !destination.visitActive) {
-          destination.visitActive = true;
-          const firstVisit = !destination.discovered;
-          destination.discovered = true;
-          const energyRestored = firstVisit
-            ? Math.min(35, Math.max(0, Math.round(100 - flight.energy)))
-            : 0;
-          flight.energy += energyRestored;
-          let pilotCellEarned = false;
-          let newlyUnlocked = [];
-          if (firstVisit) {
-            fuelCells += 1;
-            if (!pilotProfile.claimedDestinations.includes(destination.id)) {
-              pilotCellEarned = true;
-              pilotProfile.claimedDestinations.push(destination.id);
-              newlyUnlocked = PILOT_GEAR.filter(
-                (item) => item.unlockAt === pilotProfile.claimedDestinations.length,
-              );
-              savePilotProfile(pilotProfile);
-            }
-          }
-          const count = world.destinations.filter((d) => d.discovered).length;
-          if (firstVisit) {
-            const celestialGoal = world.planets.some(
-              (body) => body.id === destination.id && body.type !== 'star',
-            );
-            if (celestialGoal) audio.approach();
-            else audio.discover();
-            celebrateFuelCell(energyRestored, pilotCellEarned);
-            showLearningCard(destination);
-          }
-          if (newlyUnlocked.length) {
-            const names = newlyUnlocked.map((item) => item.name).join(' and ');
-            pendingPilotUnlock = `New astronaut gear: ${names}. Open Pilot to try it on.`;
-            if ($('learning-card').hidden) dismissLearningCard();
-          }
-          if (firstVisit) {
-            if (
-              world.destinations[targetIndex] === destination &&
-              count < world.destinations.length
-            ) {
-              do {
-                targetIndex = (targetIndex + 1) % world.destinations.length;
-              } while (world.destinations[targetIndex].discovered);
-            }
-            updateTarget();
-          }
-        } else if (distance > range + 40) {
-          destination.visitActive = false;
+      };
+      advanceFlight(flight, dt, input, (stepDt) => {
+        elapsed += stepDt;
+        if (flight.resolveCollisions(world.colliders) && elapsed - lastCollision > 2) {
+          lastCollision = elapsed;
+          notify('Proximity alert. Thrust cut — steer away, then press W.');
         }
-      }
+        for (const destination of world.destinations) {
+          const { distance, range } = getDestinationProximity(
+            destination,
+            world.planets,
+            flight.position,
+          );
+          if (distance < range && !destination.visitActive) {
+            destination.visitActive = true;
+            const firstVisit = !destination.discovered;
+            destination.discovered = true;
+            const energyRestored = firstVisit
+              ? Math.min(35, Math.max(0, Math.round(100 - flight.energy)))
+              : 0;
+            flight.energy += energyRestored;
+            let pilotCellEarned = false;
+            let newlyUnlocked = [];
+            if (firstVisit) {
+              fuelCells += 1;
+              if (!pilotProfile.claimedDestinations.includes(destination.id)) {
+                pilotCellEarned = true;
+                pilotProfile.claimedDestinations.push(destination.id);
+                newlyUnlocked = PILOT_GEAR.filter(
+                  (item) => item.unlockAt === pilotProfile.claimedDestinations.length,
+                );
+                savePilotProfile(pilotProfile);
+              }
+            }
+            const count = world.destinations.filter((d) => d.discovered).length;
+            if (firstVisit) {
+              const celestialGoal = world.planets.some(
+                (body) => body.id === destination.id && body.type !== 'star',
+              );
+              if (celestialGoal) audio.approach();
+              else audio.discover();
+              celebrateFuelCell(energyRestored, pilotCellEarned);
+              showLearningCard(destination);
+            }
+            if (newlyUnlocked.length) {
+              const names = newlyUnlocked.map((item) => item.name).join(' and ');
+              pendingPilotUnlock = `New astronaut gear: ${names}. Open Pilot to try it on.`;
+              if ($('learning-card').hidden) dismissLearningCard();
+            }
+            if (firstVisit) {
+              if (
+                world.destinations[targetIndex] === destination &&
+                count < world.destinations.length
+              ) {
+                do {
+                  targetIndex = (targetIndex + 1) % world.destinations.length;
+                } while (world.destinations[targetIndex].discovered);
+              }
+              updateTarget();
+            }
+          } else if (distance > range + 40) {
+            destination.visitActive = false;
+          }
+        }
+      });
       ship.position.copy(flight.position);
       audio.update(dt, flight);
       ship.quaternion.copy(flight.quaternion);

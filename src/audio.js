@@ -1,4 +1,4 @@
-export function createAudio() {
+export function createAudio({ mobile = false } = {}) {
   function track(name, volume, loop = false) {
     const audio = new Audio(`${import.meta.env.BASE_URL}audio/space-explorer-${name}.mp3`);
     audio.preload = 'auto';
@@ -33,6 +33,7 @@ export function createAudio() {
   let active = false;
   let muted = false;
   let lastEpicAt = Number.NEGATIVE_INFINITY;
+  let engineUpdateTime = 0;
   const play = (audio) => {
     audio.play().catch(() => {});
   };
@@ -44,6 +45,7 @@ export function createAudio() {
   return {
     resume() {
       active = true;
+      engineUpdateTime = 0;
       play(music);
       play(engine);
       // Unlock short effects during the same user gesture on mobile browsers.
@@ -76,14 +78,22 @@ export function createAudio() {
       return muted;
     },
     update(dt, flight) {
-      if (!active) return;
+      if (!active || muted) return;
+      engineUpdateTime += dt;
+      if (mobile && engineUpdateTime < 0.1) return;
       const thrust = flight.boosting ? 1 : flight.throttle;
       const volume = thrust * (flight.boosting ? 0.5 : 0.3);
-      const blend = 1 - Math.exp(-dt * 5);
+      const blend = 1 - Math.exp(-engineUpdateTime * 5);
+      engineUpdateTime = 0;
       const engineMix = effects.some((effect) => !effect.paused) ? engineEffectMix : 1;
-      engine.volume += (volume * engineMix - engine.volume) * blend;
-      engine.playbackRate +=
-        (0.8 + thrust * 0.4 + (flight.boosting ? 0.2 : 0) - engine.playbackRate) * blend;
+      const nextVolume = engine.volume + (volume * engineMix - engine.volume) * blend;
+      if (Math.abs(nextVolume - engine.volume) > 0.005) engine.volume = nextVolume;
+      // Changing media playback rate continuously can interrupt iOS playback.
+      // Phones keep a steady engine pitch, with thrust expressed through volume.
+      if (!mobile) {
+        engine.playbackRate +=
+          (0.8 + thrust * 0.4 + (flight.boosting ? 0.2 : 0) - engine.playbackRate) * blend;
+      }
     },
     discover() {
       if (!active || muted) return;
