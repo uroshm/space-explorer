@@ -13,6 +13,10 @@ npm run dev
 
 Open the local address printed in the terminal.
 
+## Customize the planets
+
+Edit [`src/data/bodies.json`](src/data/bodies.json) to change a planet’s look or features; Jupiter’s spot and Saturn’s rings are examples. You can add a planet or moon there, too. To make a new body a place players can visit, add a matching stop in `src/world.js`.
+
 ## Add your own planet questions
 
 The guide at [`src/data/learning-content.md`](src/data/learning-content.md) has examples. To make a question appear in the game, add it to [`src/data/learning-content.json`](src/data/learning-content.json)—the game reads that file. Use the planet’s name as the entry name. A quiz needs a question, three answer choices, and the correct answer written exactly as one of the choices. You can also add a short explanation or a space fact.
