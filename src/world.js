@@ -57,7 +57,15 @@ export function createWorld(scene, { lowQuality = false } = {}) {
       side: THREE.BackSide,
       depthWrite: false,
       vertexShader: `varying vec3 vP; void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `${qualityShaderDefine}${noiseGLSL}
+      fragmentShader: lowQuality
+        ? `
+      varying vec3 vP;
+      void main(){
+        vec3 d=normalize(vP);
+        float band=exp(-abs(d.y+d.x*.35-.14)*5.5);
+        gl_FragColor=vec4(vec3(.003)+vec3(.012)*band,1.);
+      }`
+        : `${qualityShaderDefine}${noiseGLSL}
       varying vec3 vP;
       void main(){
         vec3 d=normalize(vP); float n=fbm(d*4.+vec3(4,0,0));
@@ -106,8 +114,10 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     const r = Math.sqrt(1 - y * y);
     const sizeRoll = random();
     const layer = starLayers[sizeRoll < 0.82 ? 0 : sizeRoll < 0.98 ? 1 : 2];
-    layer.points.push(Math.cos(theta) * r * 80000, y * 80000, Math.sin(theta) * r * 80000);
     starColor.setHSL(0.08 + random() * 0.56, 0.12 + random() * 0.2, 0.3 + random() * 0.55);
+    // Consume the same random values so gameplay positions match every quality.
+    if (lowQuality && i % 3 !== 0) continue;
+    layer.points.push(Math.cos(theta) * r * 80000, y * 80000, Math.sin(theta) * r * 80000);
     layer.colors.push(starColor.r, starColor.g, starColor.b);
   }
   for (const layer of starLayers) {
@@ -152,15 +162,43 @@ export function createWorld(scene, { lowQuality = false } = {}) {
         },
         spotSize: { value: new THREE.Vector2(...(spot?.size ?? [18, 10]).map(radians)) },
       },
-      vertexShader: `varying vec3 vP; varying vec3 vN; varying vec3 vW; void main(){vP=position;vN=normalize(mat3(modelMatrix)*normal);vW=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);}`,
-      fragmentShader: `${qualityShaderDefine}${noiseGLSL}
+      // Mobile interpolates broad terrain detail from vertices instead of
+      // evaluating layered noise for every covered screen pixel.
+      vertexShader: `${qualityShaderDefine}
+#ifdef LOW_QUALITY
+        ${noiseGLSL}
+        varying vec2 vTerrain;
+#endif
+        varying vec3 vP; varying vec3 vN; varying vec3 vW;
+        void main(){
+          vP=position;vN=normalize(mat3(modelMatrix)*normal);
+          vW=(modelMatrix*vec4(position,1.)).xyz;
+#ifdef LOW_QUALITY
+          vec3 p=normalize(position);
+          vTerrain=vec2(fbm(p*4.5),fbm(p*8.));
+#endif
+          gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);
+        }`,
+      fragmentShader: `${qualityShaderDefine}
+#ifdef LOW_QUALITY
+        varying vec2 vTerrain;
+#else
+        ${noiseGLSL}
+#endif
         uniform vec3 colorA; uniform vec3 colorB; uniform float bodyRadius; uniform float gas;
         uniform float hasSpot; uniform vec3 spotColor; uniform vec2 spotCenter; uniform vec2 spotSize;
         varying vec3 vP; varying vec3 vN; varying vec3 vW;
         void main(){
-          vec3 p=normalize(vP); float terrain=fbm(p*4.5);
+          vec3 p=normalize(vP);
+#ifdef LOW_QUALITY
+          float terrain=vTerrain.x;
+          float bandNoise=vTerrain.y;
+#else
+          float terrain=fbm(p*4.5);
+          float bandNoise=gas>.5 ? fbm(p*8.) : 0.;
+#endif
           float land=smoothstep(.46,.56,terrain);
-          if(gas>.5) land=.5+.5*sin(p.y*55.+fbm(p*8.)*13.);
+          if(gas>.5) land=.5+.5*sin(p.y*55.+bandNoise*13.);
           vec3 color=mix(colorA,colorB,land);
 #ifdef LOW_QUALITY
           color*=.86+terrain*.28;
@@ -189,7 +227,7 @@ export function createWorld(scene, { lowQuality = false } = {}) {
         }`,
     });
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, lowQuality ? 40 : 80, lowQuality ? 28 : 56),
+      new THREE.SphereGeometry(radius, lowQuality ? 32 : 80, lowQuality ? 24 : 56),
       material,
     );
     mesh.name = name;
@@ -206,7 +244,7 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     const rings = body.features?.rings;
     if (!rings) continue;
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(rings.innerRadius, rings.outerRadius, 192),
+      new THREE.RingGeometry(rings.innerRadius, rings.outerRadius, lowQuality ? 96 : 192),
       new THREE.ShaderMaterial({
         transparent: true,
         side: THREE.DoubleSide,
@@ -279,16 +317,16 @@ export function createWorld(scene, { lowQuality = false } = {}) {
     new THREE.MeshStandardMaterial({ color: 0x746d63, flatShading: true, roughness: 1 }),
     asteroidCount,
   );
+  const asteroidBeltPosition = new THREE.Vector3(0, 0, -22000);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < asteroidCount; i++) {
+    const angle = random() * Math.PI * 2;
+    const orbitRadius = 2000 + random() * 5200;
     dummy.position.set(
-      (random() - 0.5) * 6000,
-      (random() - 0.5) * 1250 - 200,
-      -650 - random() * 5100,
+      asteroidBeltPosition.x + Math.cos(angle) * orbitRadius,
+      asteroidBeltPosition.y + Math.sin(angle) * orbitRadius,
+      asteroidBeltPosition.z + (random() - 0.5) * 800,
     );
-    // Keep the first beacon's approach clear for new pilots.
-    if (Math.abs(dummy.position.x) < 100 && Math.abs(dummy.position.y) < 100)
-      dummy.position.x += 180;
     const size = 7 + random() ** 2 * 60;
     dummy.scale.set(size, size * (0.6 + random() * 0.4), size);
     dummy.rotation.set(random() * 6, random() * 6, random() * 6);
@@ -411,7 +449,7 @@ export function createWorld(scene, { lowQuality = false } = {}) {
       id: 'asteroid-belt',
       name: 'Asteroid belt survey',
       type: 'Deep-space observation',
-      position: new THREE.Vector3(0, 0, -22000),
+      position: asteroidBeltPosition.clone(),
       info: 'A broad region between Mars and Jupiter filled with rocky and metallic bodies.',
     },
     {

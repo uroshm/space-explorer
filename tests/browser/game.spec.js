@@ -149,7 +149,12 @@ test('uses lighter WebGL settings on phones', async ({ browser }) => {
     antialias: canvas.getContext('webgl2').getContextAttributes().antialias,
   }));
 
-  expect(settings).toEqual({ pixelRatio: 1, antialias: false });
+  expect(settings.pixelRatio).toBeCloseTo(0.85, 2);
+  expect(settings.antialias).toBe(false);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect
+    .poll(() => page.locator('#viewport canvas').evaluate((canvas) => canvas.width / innerWidth))
+    .toBeCloseTo(0.85, 2);
   expect(errors).toEqual([]);
   await context.close();
 });

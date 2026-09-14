@@ -49,7 +49,7 @@ function createHullGeometry() {
   return geometry;
 }
 
-export function createShip() {
+export function createShip({ lowQuality = false } = {}) {
   const ship = new THREE.Group();
   const hull = new THREE.MeshStandardMaterial({
     color: 0xaebfc0,
@@ -70,11 +70,13 @@ export function createShip() {
     color: 0x64b4ba,
     metalness: 0.3,
     roughness: 0.12,
-    transmission: 0.18,
+    // Transmission renders the whole scene again for refraction. Alpha glass
+    // keeps the astronaut visible without that extra pass on phones.
+    transmission: lowQuality ? 0 : 0.18,
     transparent: true,
     opacity: 0.68,
     depthWrite: false,
-    clearcoat: 0.9,
+    clearcoat: lowQuality ? 0 : 0.9,
     clearcoatRoughness: 0.12,
   });
   const navLight = new THREE.MeshBasicMaterial({ color: 0xb2ffe8 });
@@ -247,6 +249,7 @@ export function createShip() {
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide,
+        toneMapped: false,
       }),
       [side * 1.55, -0.1, 6.35],
     );
@@ -255,9 +258,9 @@ export function createShip() {
   }
 
   function updateEngineFlames({ throttle = 0, boosting = false, active = false } = {}) {
-    const thrustMix = active ? 0.45 + THREE.MathUtils.clamp(throttle, 0, 1) * 0.55 : 0;
+    const thrustMix = active ? THREE.MathUtils.smoothstep(throttle, 0, 0.22) : 0;
     currentFlameColor.copy(idleFlameColor).lerp(thrustFlameColor, thrustMix);
-    if (boosting) currentFlameColor.lerp(boostFlameColor, 0.72);
+    if (boosting) currentFlameColor.copy(thrustFlameColor).lerp(boostFlameColor, 0.72);
     exhaust.forEach((plume) => plume.material.color.copy(currentFlameColor));
   }
 

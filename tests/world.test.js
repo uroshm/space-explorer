@@ -7,6 +7,29 @@ import { Flight } from '../src/flight.js';
 import { createWorld } from '../src/world.js';
 import { COMET_LIFETIME, createCometSchedule } from '../src/world-timing.js';
 
+test('mobile reduces geometry and stars while preserving all gameplay locations', () => {
+  const desktopScene = new THREE.Scene();
+  const mobileScene = new THREE.Scene();
+  const desktop = createWorld(desktopScene);
+  const mobile = createWorld(mobileScene, { lowQuality: true });
+  assert.deepEqual(mobile.colliders, desktop.colliders);
+  assert.deepEqual(
+    mobile.destinations.map(({ id, position }) => ({ id, position })),
+    desktop.destinations.map(({ id, position }) => ({ id, position })),
+  );
+  for (let i = 1; i < mobile.planets.length; i++) {
+    assert.ok(
+      mobile.planets[i].mesh.geometry.index.count <
+        desktop.planets[i].mesh.geometry.index.count / 3,
+    );
+  }
+  let stars = 0;
+  mobileScene.getObjectByName('Starfield').traverse((object) => {
+    if (object.isPoints) stars += object.geometry.attributes.position.count;
+  });
+  assert.ok(stars > 2000 && stars < 2500);
+});
+
 test('world creates the Sun, ordered planet flybys, and a reduced asteroid field', () => {
   const scene = new THREE.Scene();
   const world = createWorld(scene);
@@ -61,6 +84,19 @@ test('world creates the Sun, ordered planet flybys, and a reduced asteroid field
     25,
     'asteroid count stays at one quarter of the former 100',
   );
+});
+
+test('asteroid colliders sit around the asteroid-belt survey marker', () => {
+  const world = createWorld(new THREE.Scene());
+  const center = new THREE.Vector3(0, 0, -22000);
+  const asteroidColliders = world.colliders.slice(-25);
+
+  assert.equal(asteroidColliders.length, 25);
+  for (const asteroid of asteroidColliders) {
+    const radialDistance = Math.hypot(asteroid.position.x, asteroid.position.y);
+    assert.ok(radialDistance >= 2000 && radialDistance <= 7200);
+    assert.ok(Math.abs(asteroid.position.z - center.z) <= 400);
+  }
 });
 
 test('planet, moon, and dwarf-planet destinations have no floating ring markers', () => {

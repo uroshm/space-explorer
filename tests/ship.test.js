@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { createShip } from '../src/ship.js';
 
+test('mobile glass keeps the pilot visible without a scene transmission pass', () => {
+  const { ship } = createShip({ lowQuality: true });
+  const glass = ship.getObjectByName('Cockpit canopy').material;
+  assert.equal(glass.transmission, 0);
+  assert.equal(glass.transparent, true);
+  assert.ok(glass.opacity < 1);
+  assert.ok(ship.getObjectByName('Pilot suit'));
+});
+
 test('ship includes a cockpit, shaped fuselage, swept wings, and paired engines', () => {
   const { ship, exhaust } = createShip();
 
@@ -21,10 +30,13 @@ test('engine flames turn warm under thrust and red-orange while boosting', () =>
 
   updateEngineFlames({ active: false });
   assert.equal(exhaust[0].material.color.getHex(), 0x7affdb);
+  updateEngineFlames({ active: true, throttle: 0 });
+  assert.equal(exhaust[0].material.color.getHex(), 0x7affdb);
 
   updateEngineFlames({ active: true, throttle: 0.32 });
   const thrustColor = exhaust[0].material.color.clone();
-  assert.ok(thrustColor.r > thrustColor.g && thrustColor.g > thrustColor.b);
+  assert.equal(thrustColor.getHex(), 0xff642d);
+  assert.equal(exhaust[0].material.toneMapped, false);
   assert.equal(exhaust[0].material.color.getHex(), exhaust[1].material.color.getHex());
 
   updateEngineFlames({ active: true, throttle: 1, boosting: true });

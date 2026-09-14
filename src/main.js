@@ -3,6 +3,7 @@ import { Flight, BOOST_SPEED } from './flight.js';
 import { getDestinationProximity } from './discovery.js';
 import { createShip } from './ship.js';
 import { createWorld } from './world.js';
+import { createRenderQuality } from './render-quality.js';
 import { createAudio } from './audio.js';
 import { formatDistance } from './distance.js';
 import {
@@ -101,8 +102,10 @@ document.querySelector('#app').innerHTML = `
 const $ = (id) => document.getElementById(id);
 const game = $('game');
 const dialog = $('menu-dialog');
-const lowPowerDisplay = window.matchMedia('(pointer: coarse)').matches;
-const maxPixelRatio = lowPowerDisplay ? 1 : 2;
+const lowPowerDisplay =
+  window.matchMedia('(pointer: coarse)').matches ||
+  (navigator.maxTouchPoints > 0 && window.matchMedia('(any-pointer: coarse)').matches);
+const renderQuality = createRenderQuality({ mobile: lowPowerDisplay });
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({
@@ -117,7 +120,7 @@ try {
 if (renderer) startGame();
 
 function startGame() {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+  renderer.setPixelRatio(renderQuality.pixelRatio(innerWidth, innerHeight, devicePixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
@@ -125,7 +128,9 @@ function startGame() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100000);
   const world = createWorld(scene, { lowQuality: lowPowerDisplay });
-  const { ship, exhaust, updateAstronaut, updateEngineFlames } = createShip();
+  const { ship, exhaust, updateAstronaut, updateEngineFlames } = createShip({
+    lowQuality: lowPowerDisplay,
+  });
   scene.add(ship);
   const flight = new Flight();
   const audio = createAudio();
@@ -141,6 +146,7 @@ function startGame() {
   let pendingPilotUnlock = '';
   let elapsed = 0;
   let previousTime = performance.now();
+  let lastRenderedAt = -Infinity;
   let hudTimer = 0;
   let lastFlightInputAt = performance.now();
   let idleReminderShown = false;
@@ -749,8 +755,22 @@ function startGame() {
   }
 
   function frame(now) {
-    const dt = Math.min((now - previousTime) / 1000, 0.05);
+    if (document.hidden) {
+      previousTime = now;
+      renderQuality.reset();
+      return;
+    }
+    // Menus need no continuous scene redraw; keep the mobile intro at 30 fps.
+    const idleInterval = paused && launched ? 200 : lowPowerDisplay && paused ? 1000 / 30 : 0;
+    if (now - lastRenderedAt < idleInterval - 1) return;
+    lastRenderedAt = now;
+    const frameMs = now - previousTime;
+    const dt = Math.min(frameMs / 1000, 0.05);
     previousTime = now;
+    if (paused) renderQuality.reset();
+    else if (renderQuality.sample(frameMs)) {
+      renderer.setPixelRatio(renderQuality.pixelRatio(innerWidth, innerHeight, devicePixelRatio));
+    }
     if (!paused) {
       elapsed += dt;
       const steeringInput = Math.abs(mouse.x) > 0.05 || Math.abs(mouse.y) > 0.05;
@@ -869,7 +889,7 @@ function startGame() {
     }
     updateEngineFlames({ throttle: flight.throttle, boosting: flight.boosting, active: launched });
     hudTimer += dt;
-    if (hudTimer > 0.1) {
+    if (hudTimer > (lowPowerDisplay ? 0.15 : 0.1)) {
       updateHUD();
       hudTimer = 0;
     }
@@ -880,8 +900,9 @@ function startGame() {
   window.addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    renderQuality.reset();
+    renderer.setPixelRatio(renderQuality.pixelRatio(innerWidth, innerHeight, devicePixelRatio));
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio));
   });
   renderer.domElement.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
