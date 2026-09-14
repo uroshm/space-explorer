@@ -2,7 +2,9 @@
 
 A little space-exploration game that began as a father-son project. Our son’s love of space sparked a shared curiosity about visiting the planets and learning something along the way.
 
-## Run the game
+Play the deployed prod version at https://uroshm.github.io/tomas-spaceship/
+
+## Run the game locally
 
 Install [Node.js](https://nodejs.org/), then run these commands from the project folder:
 
