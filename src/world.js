@@ -19,10 +19,24 @@ const noiseGLSL = `
     vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
     return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
   }
-  float fbm(vec3 p) { float v=0.; float a=.5; for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.03+vec3(2.1,4.3,1.2);a*=.5;} return v; }
+  float fbm(vec3 p) {
+    float v = 0.;
+    float a = .5;
+#ifdef LOW_QUALITY
+    for (int i = 0; i < 3; i++) {
+#else
+    for (int i = 0; i < 5; i++) {
+#endif
+      v += a * noise(p);
+      p = p * 2.03 + vec3(2.1, 4.3, 1.2);
+      a *= .5;
+    }
+    return v;
+  }
 `;
 
-export function createWorld(scene) {
+export function createWorld(scene, { lowQuality = false } = {}) {
+  const qualityShaderDefine = lowQuality ? '#define LOW_QUALITY\n' : '';
   const layoutScale = 1.72;
   const bodies = resolveBodies(bodyCatalog).map((body) => ({
     ...body,
@@ -46,13 +60,15 @@ export function createWorld(scene) {
       side: THREE.BackSide,
       depthWrite: false,
       vertexShader: `varying vec3 vP; void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `${noiseGLSL}
+      fragmentShader: `${qualityShaderDefine}${noiseGLSL}
       varying vec3 vP;
       void main(){
         vec3 d=normalize(vP); float n=fbm(d*4.+vec3(4,0,0));
         float band=exp(-abs(d.y+d.x*.35-.14)*5.5);
         vec3 color=vec3(.003)+vec3(.08)*pow(n,2.)*band;
+#ifndef LOW_QUALITY
         color+=vec3(.035)*pow(fbm(d*5.+15.),3.)*band;
+#endif
         gl_FragColor=vec4(color,1.);
       }`,
     }),
@@ -140,7 +156,7 @@ export function createWorld(scene) {
         spotSize: { value: new THREE.Vector2(...(spot?.size ?? [18, 10]).map(radians)) },
       },
       vertexShader: `varying vec3 vP; varying vec3 vN; varying vec3 vW; void main(){vP=position;vN=normalize(mat3(modelMatrix)*normal);vW=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);}`,
-      fragmentShader: `${noiseGLSL}
+      fragmentShader: `${qualityShaderDefine}${noiseGLSL}
         uniform vec3 colorA; uniform vec3 colorB; uniform float bodyRadius; uniform float gas;
         uniform float hasSpot; uniform vec3 spotColor; uniform vec2 spotCenter; uniform vec2 spotSize;
         varying vec3 vP; varying vec3 vN; varying vec3 vW;
@@ -149,6 +165,9 @@ export function createWorld(scene) {
           float land=smoothstep(.46,.56,terrain);
           if(gas>.5) land=.5+.5*sin(p.y*55.+fbm(p*8.)*13.);
           vec3 color=mix(colorA,colorB,land);
+#ifdef LOW_QUALITY
+          color*=.86+terrain*.28;
+#else
           color*=.8+fbm(p*42.)*.4;
           float cameraDistance=length(cameraPosition-vW)/bodyRadius;
           float closeDetail=1.-smoothstep(3.,18.,cameraDistance);
@@ -156,6 +175,7 @@ export function createWorld(scene) {
           color*=mix(1.,.82+fineTexture*.36,closeDetail);
           float clouds=smoothstep(.60,.76,fbm(p*7.+vec3(9.)));
           color=mix(color,vec3(.73,.83,.79),clouds*.55*(1.-gas));
+#endif
           if(hasSpot>.5) {
             float longitude=atan(p.z,p.x);
             float delta=atan(sin(longitude-spotCenter.x),cos(longitude-spotCenter.x));
@@ -171,7 +191,10 @@ export function createWorld(scene) {
           #include <colorspace_fragment>
         }`,
     });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 80, 56), material);
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, lowQuality ? 40 : 80, lowQuality ? 28 : 56),
+      material,
+    );
     mesh.name = name;
     mesh.userData = { id: body.id, type: body.type, radius };
     mesh.position.set(...position);

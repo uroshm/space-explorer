@@ -116,6 +116,41 @@ test('learning quiz choices are large tap targets on a phone', async ({ browser 
     expect(box.width).toBeGreaterThan(300);
   }
   await choices.nth(1).tap();
+  const close = page.locator('#learning-close');
+  const closeBox = await close.boundingBox();
+  expect(closeBox.width).toBeGreaterThanOrEqual(96);
+  expect(closeBox.height).toBeGreaterThanOrEqual(56);
+  expect(await close.evaluate((button) => getComputedStyle(button).backgroundColor)).toBe(
+    'rgb(145, 220, 85)',
+  );
+  await close.tap();
+  await expect(page.locator('#learning-card')).toBeHidden();
+  await context.close();
+});
+
+test('uses lighter WebGL settings on phones', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.goto('/');
+  await expect(page.locator('#error')).toBeHidden();
+
+  const settings = await page.locator('#viewport canvas').evaluate((canvas) => ({
+    pixelRatio: canvas.width / window.innerWidth,
+    antialias: canvas.getContext('webgl2').getContextAttributes().antialias,
+  }));
+
+  expect(settings).toEqual({ pixelRatio: 1, antialias: false });
+  expect(errors).toEqual([]);
   await context.close();
 });
 

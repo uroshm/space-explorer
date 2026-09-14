@@ -422,80 +422,6 @@ h1 > span {
 .text-button span {
   padding-left: 18px;
 }
-.approach-alert {
-  position: absolute;
-  z-index: 4;
-  top: 42%;
-  left: 50%;
-  width: min(760px, calc(100vw - 36px));
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 14px;
-  text-align: center;
-  pointer-events: none;
-  text-shadow: 0 2px 22px #000;
-}
-.approach-alert:not([hidden]) {
-  animation: approach-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.approach-alert > .eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #c1e8d8;
-  font-size: 8px;
-  letter-spacing: 3px;
-}
-.approach-alert .status-dot {
-  width: 5px;
-  height: 5px;
-  animation: proximity-pulse 1.8s ease-in-out infinite;
-}
-.approach-alert > strong {
-  font-size: clamp(10px, 1.15vw, 14px);
-  font-weight: 500;
-  letter-spacing: clamp(3px, 0.7vw, 8px);
-  color: #dce8df;
-}
-.approach-planet {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(48px, 10vw, 112px);
-  font-weight: 400;
-  line-height: 0.98;
-  letter-spacing: -0.065em;
-  color: #e6fff1;
-  background: linear-gradient(180deg, #f1fff7 5%, #b7ead4 58%, #79b9a9);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 28px #a6f3d33b);
-}
-.approach-rule {
-  width: min(180px, 35vw);
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #c6f2ddaa, transparent);
-  margin-top: 7px;
-}
-@keyframes approach-reveal {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 26px));
-    filter: blur(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-    filter: blur(0);
-  }
-}
-@keyframes proximity-pulse {
-  50% {
-    opacity: 0.3;
-    box-shadow: 0 0 15px #b7ead4;
-  }
-}
 .flight-deck {
   position: absolute;
   bottom: 28px;
@@ -1701,11 +1627,36 @@ dialog .primary {
   font-size: 8px;
 }
 .learning-close {
-  width: 28px;
-  height: 28px;
-  color: #a9c2b9;
-  font-size: 22px;
+  display: inline-flex;
+  flex: 0 0 88px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 88px;
+  min-height: 48px;
+  border: 2px solid #d4ffa6;
+  border-radius: 24px;
+  background: #91dc55;
+  color: #15331a;
+  box-shadow: 0 0 0 3px #91dc5533;
+  font-weight: 800;
   line-height: 1;
+}
+.learning-close > span:first-child {
+  font-size: 30px;
+}
+.learning-close-label {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.learning-close:hover,
+.learning-close:focus-visible {
+  border-color: #efffdc;
+  background: #b6f27b;
+  color: #102a16;
+}
+.learning-close:active {
+  transform: scale(0.96);
 }
 .learning-card h2 {
   margin: 7px 0 9px;
@@ -1802,5 +1753,13 @@ dialog .primary {
     min-height: 64px;
     padding: 14px 15px;
     font-size: 16px;
+  }
+  .learning-close {
+    flex-basis: 96px;
+    width: 96px;
+    min-height: 56px;
+  }
+  .learning-close > span:first-child {
+    font-size: 34px;
   }
 }

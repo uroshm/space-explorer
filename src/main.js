@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Flight, BOOST_SPEED } from './flight.js';
-import { findApproachingPlanet } from './approach.js';
 import { getDestinationProximity } from './discovery.js';
 import { createShip } from './ship.js';
 import { createWorld } from './world.js';
@@ -55,12 +54,6 @@ document.querySelector('#app').innerHTML = `
     <div class="planet-caption"><span class="caption-line"></span><div><span class="eyebrow">SATURN / 02</span><span>The ringed giant</span></div></div>
     <div id="reticle" class="reticle" hidden><span></span><i></i><span></span></div>
     <div id="target-marker" class="target-marker" hidden><div class="target-diamond"></div><span id="target-label">THE FIRST SIGNAL</span><small id="target-distance">700</small></div>
-    <div id="approach-alert" class="approach-alert" role="status" aria-live="polite" hidden>
-      <span class="eyebrow"><span class="status-dot"></span> WORLD PROXIMITY</span>
-      <strong>YOU ARE APPROACHING</strong>
-      <span id="approach-planet" class="approach-planet"></span>
-      <span class="approach-rule"></span>
-    </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="fuel-cell-pop" class="fuel-cell-pop" role="status" aria-live="polite" hidden>
       <div class="fuel-cell-art" aria-hidden="true">
@@ -73,7 +66,7 @@ document.querySelector('#app').innerHTML = `
       <div class="fuel-cell-copy"><strong>FUEL CELL!</strong><span id="fuel-cell-reward">+35 BOOST</span><span id="fuel-cell-progression"></span></div>
     </div>
     <aside id="learning-card" class="learning-card" aria-labelledby="learning-title" hidden>
-      <div class="learning-card-top"><span class="eyebrow">OPTIONAL FIELD NOTE</span><button id="learning-close" class="learning-close" aria-label="Close field note">×</button></div>
+      <div class="learning-card-top"><span class="eyebrow">OPTIONAL FIELD NOTE</span><button id="learning-close" class="learning-close" aria-label="Close field note"><span aria-hidden="true">×</span><span class="learning-close-label">CLOSE</span></button></div>
       <h2 id="learning-title"></h2>
       <p id="learning-fact" hidden></p>
       <section id="learning-quiz" hidden>
@@ -108,9 +101,14 @@ document.querySelector('#app').innerHTML = `
 const $ = (id) => document.getElementById(id);
 const game = $('game');
 const dialog = $('menu-dialog');
+const lowPowerDisplay = window.matchMedia('(pointer: coarse)').matches;
+const maxPixelRatio = lowPowerDisplay ? 1 : 2;
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({
+    antialias: !lowPowerDisplay,
+    powerPreference: 'high-performance',
+  });
 } catch (error) {
   $('error').hidden = false;
   $('launch-button').disabled = true;
@@ -119,14 +117,14 @@ try {
 if (renderer) startGame();
 
 function startGame() {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
   $('viewport').appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 100000);
-  const world = createWorld(scene);
+  const world = createWorld(scene, { lowQuality: lowPowerDisplay });
   const { ship, exhaust, updateAstronaut, updateEngineFlames } = createShip();
   scene.add(ship);
   const flight = new Flight();
@@ -151,7 +149,6 @@ function startGame() {
   let lastCollision = -10;
   let cockpit = false;
   let pointerLocked = false;
-  let activeApproachId = null;
   $('fuel-cell-tracker').setAttribute('aria-valuemax', world.destinations.length);
   $('fuel-cell-pips').replaceChildren(
     ...world.destinations.map(() => {
@@ -162,7 +159,6 @@ function startGame() {
   const cameraPosition = new THREE.Vector3();
   const cameraLook = new THREE.Vector3();
   const cameraUp = new THREE.Vector3();
-  const cameraDirection = new THREE.Vector3();
   const projected = new THREE.Vector3();
   const localTarget = new THREE.Vector3();
   const inverseRotation = new THREE.Quaternion();
@@ -745,29 +741,6 @@ function startGame() {
       `translate(calc(-50% + ${mouse.x * 100}px), calc(-50% - ${mouse.y * 100}px))`;
   }
 
-  function updateApproachAlert() {
-    camera.updateMatrixWorld();
-    camera.getWorldDirection(cameraDirection);
-    const alert = $('approach-alert');
-    const approaching = findApproachingPlanet(
-      world.planets,
-      flight.position,
-      cameraDirection,
-      activeApproachId,
-    );
-    if (approaching) {
-      if (activeApproachId !== approaching.planet.id && approaching.planet.type !== 'star') {
-        audio.approach();
-      }
-      activeApproachId = approaching.planet.id;
-      $('approach-planet').textContent = approaching.planet.name.toUpperCase();
-      alert.hidden = false;
-    } else {
-      activeApproachId = null;
-      alert.hidden = true;
-    }
-  }
-
   function frame(now) {
     const dt = Math.min((now - previousTime) / 1000, 0.05);
     previousTime = now;
@@ -838,7 +811,11 @@ function startGame() {
           }
           const count = world.destinations.filter((d) => d.discovered).length;
           if (firstVisit) {
-            audio.discover();
+            const celestialGoal = world.planets.some(
+              (body) => body.id === destination.id && body.type !== 'star',
+            );
+            if (celestialGoal) audio.approach();
+            else audio.discover();
             celebrateFuelCell(energyRestored, pilotCellEarned);
             showLearningCard(destination);
           }
@@ -868,13 +845,10 @@ function startGame() {
       ship.rotateZ(flight.bank);
       world.update(dt, elapsed, flight.position, flight.quaternion);
       updateCamera(dt);
-      updateApproachAlert();
     } else if (!launched) {
       elapsed += dt;
       ship.position.y = Math.sin(elapsed * 0.6) * 0.14;
       world.update(dt * 0.3, elapsed, flight.position, flight.quaternion);
-    } else {
-      updateApproachAlert();
     }
     for (const plume of exhaust) {
       const strength = !launched ? 0.18 : flight.speed / BOOST_SPEED;
@@ -900,7 +874,7 @@ function startGame() {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, maxPixelRatio));
   });
   renderer.domElement.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();

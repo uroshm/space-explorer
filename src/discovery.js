@@ -1,15 +1,15 @@
-export const PLANET_FLYBY_CLEARANCE = 900;
+export const CELESTIAL_FLYBY_CLEARANCE = 900;
 export const BEACON_DISCOVERY_RANGE = 100;
 
 export function getDestinationProximity(destination, planets, shipPosition) {
-  const planet = planets.find(
-    (candidate) => candidate.id === destination.id && candidate.type === 'planet',
+  const body = planets.find(
+    (candidate) => candidate.id === destination.id && candidate.type !== 'star',
   );
 
-  if (planet) {
+  if (body) {
     return {
-      distance: shipPosition.distanceTo(planet.position) - planet.radius,
-      range: PLANET_FLYBY_CLEARANCE,
+      distance: shipPosition.distanceTo(body.position) - body.radius,
+      range: CELESTIAL_FLYBY_CLEARANCE,
     };
   }
 
